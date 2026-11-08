@@ -147,7 +147,13 @@ def run_e1(results_dir: Path, figures_dir: Path) -> dict:
         "split": "val",
         "metric": "mean_dice",
         "value": best_thr,
+        "default_during_training": 0.5,
         "grid_best_val_mean_dice": thr_info["best_val_mean_dice"],
+        "notes": (
+            "value is the post-training threshold selected on validation mean Dice. "
+            "default_during_training=0.5 is the fixed threshold used by MeanDiceCallback "
+            "for checkpoint selection (val_mean_dice). These are intentionally distinct."
+        ),
     }
     meta["validation_metrics"] = {
         "global": val["global"],

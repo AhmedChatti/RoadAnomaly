@@ -24,7 +24,7 @@ def set_global_seed(seed: int) -> None:
     tf.keras.utils.set_random_seed(seed)
 
 
-class RoadAnomalySequence(keras.utils.Sequence):
+class RoadAnomalySequence(keras.utils.PyDataset):
     def __init__(
         self,
         split: str,
@@ -35,6 +35,7 @@ class RoadAnomalySequence(keras.utils.Sequence):
         seed: int = 42,
         shuffle: bool = False,
     ) -> None:
+        super().__init__(workers=1, use_multiprocessing=False, max_queue_size=2)
         self.dataset = RoadAnomalyDataset(
             split,  # type: ignore[arg-type]
             normalize=normalize,
@@ -94,7 +95,7 @@ class MeanDiceCallback(keras.callbacks.Callback):
         dices = []
         for batch_index in range(len(self.val_sequence)):
             x, y = self.val_sequence[batch_index]
-            probs = self.model.predict(x, verbose=0)
+            probs = self.model(x, training=False).numpy()
             preds = threshold_probabilities(probs[..., 0], self.threshold)
             for i in range(x.shape[0]):
                 m = binary_segmentation_metrics(y[i, ..., 0], preds[i])
@@ -146,7 +147,7 @@ def train_scratch_fcn(
     epochs: int | None = None,
     batch_size: int | None = None,
     learning_rate: float | None = None,
-    positive_weight: float = 9.0,
+    positive_weight: float = 15.0,
 ) -> dict[str, Any]:
     from models.cnn import build_scratch_fcn
 
@@ -182,7 +183,7 @@ def train_scratch_fcn(
         shuffle=False,
     )
 
-    model = build_scratch_fcn(input_height=height, input_width=width)
+    model = build_scratch_fcn(input_height=height, input_width=width, base_filters=8)
     model.compile(
         optimizer=keras.optimizers.Adam(learning_rate=learning_rate),
         loss=bce_dice_loss(positive_weight=positive_weight, dice_weight=1.0),
@@ -214,9 +215,11 @@ def train_scratch_fcn(
     meta = {
         "experiment_id": experiment_id,
         "model_name": "scratch_fcn_unetlite",
-        "architecture": "U-Net-lite FCN trained from scratch",
+        "architecture": "U-Net-lite FCN from scratch (base_filters=8, no BatchNorm)",
         "input_height": height,
         "input_width": width,
+        "base_filters": 8,
+        "batch_norm": False,
         "split_manifest": "data/processed/split_manifest.csv",
         "split_manifest_sha256": split_hash,
         "seed": seed,
@@ -250,7 +253,11 @@ def train_scratch_fcn(
             "val_binary_accuracy": [float(x) for x in history.history.get("val_binary_accuracy", [])],
             "val_mean_dice": dice_cb.history,
         },
-        "notes": "Phase 3 E1. Test split was not used for selection.",
+        "notes": (
+            "Phase 3 E1. Test split was not used for selection. "
+            "BatchNorm removed because batch_size=2 on CPU caused train/eval collapse "
+            "toward all-background predictions."
+        ),
         "status": "completed",
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
     }

@@ -1,0 +1,10 @@
+Phase 3 CANONICAL checkpoint — DO NOT DELETE OR OVERWRITE.
+
+experiment_id: E1_cnn_scratch_20261108_1510
+file: best.keras
+sha256: 567bde326ee5b776bc34132b23012543b35f195ec8d60229d01196eb1a0fb234
+training_threshold_for_checkpointing: 0.5
+selected_validation_threshold: 0.35
+frozen_val_mean_dice: 0.5689638550170618
+audit: experiments/metadata/phase3_freeze_audit.json
+docs: docs/10_phase3_freeze_and_phase4_plan.md

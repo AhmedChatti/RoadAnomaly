@@ -8,19 +8,17 @@ from tensorflow.keras import layers
 
 
 def conv_block(x: tf.Tensor, filters: int, name: str) -> tf.Tensor:
-    x = layers.Conv2D(filters, 3, padding="same", use_bias=False, name=f"{name}_conv1")(x)
-    x = layers.BatchNormalization(name=f"{name}_bn1")(x)
-    x = layers.ReLU(name=f"{name}_relu1")(x)
-    x = layers.Conv2D(filters, 3, padding="same", use_bias=False, name=f"{name}_conv2")(x)
-    x = layers.BatchNormalization(name=f"{name}_bn2")(x)
-    x = layers.ReLU(name=f"{name}_relu2")(x)
+    # No BatchNorm: with batch_size=2 on CPU, BN train/eval mismatch collapses
+    # predictions toward background. Bias + ReLU is more stable here.
+    x = layers.Conv2D(filters, 3, padding="same", activation="relu", name=f"{name}_conv1")(x)
+    x = layers.Conv2D(filters, 3, padding="same", activation="relu", name=f"{name}_conv2")(x)
     return x
 
 
 def build_scratch_fcn(
     input_height: int = 288,
     input_width: int = 512,
-    base_filters: int = 16,
+    base_filters: int = 8,
     dropout: float = 0.2,
 ) -> keras.Model:
     """Encoder–decoder FCN without pretrained weights.
@@ -63,6 +61,17 @@ def build_scratch_fcn(
     d1 = conv_block(u1, f1, "dec1")
     d1 = layers.Dropout(dropout, name="dec_dropout")(d1)
 
-    outputs = layers.Conv2D(1, 1, activation="sigmoid", name="anomaly_prob")(d1)
+    # Bias ≈ logit(prior) with prior≈0.1 so early predictions are not all-negative.
+    import math
+
+    prior = 0.1
+    bias_init = -math.log((1.0 - prior) / prior)
+    outputs = layers.Conv2D(
+        1,
+        1,
+        activation="sigmoid",
+        bias_initializer=keras.initializers.Constant(bias_init),
+        name="anomaly_prob",
+    )(d1)
     model = keras.Model(inputs=inputs, outputs=outputs, name="scratch_fcn_unetlite")
     return model

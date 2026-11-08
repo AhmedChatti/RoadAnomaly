@@ -28,7 +28,9 @@ Ouvrir l’onglet **Jouer**.
 
 ## Défi découverte
 
-- Image JPG/JPEG/PNG ≤ 8 Mo, licence et source obligatoires, consentement obligatoire.
+- Image JPG/JPEG/PNG ≤ 8 Mo ; consentement obligatoire pour enregistrer la contribution.
+- Pas de formulaire URL/licence côté joueur (valeurs par défaut « non déclaré »).
+- Sans droits déclarés, la contribution reste **non éligible** à un futur export E3.
 - Pas de Dice/IoU validé (pas de vérité terrain).
 - Différer de l’IA **ne prouve pas** que vous avez raison.
 - Statut initial : `pending_review` (ou `duplicate` si empreinte déjà vue).

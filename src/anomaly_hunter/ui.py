@@ -87,6 +87,29 @@ def _canvas_available() -> bool:
         return False
 
 
+def _ensure_canvas_streamlit_compat() -> None:
+    """streamlit-drawable-canvas ≤0.9.x expects image_to_url(image, width, ...) on elements.image.
+
+    Streamlit 1.67 moved the helper and changed the 2nd argument to LayoutConfig.
+    """
+    import streamlit.elements.image as st_image
+
+    if getattr(st_image, "_roadanomaly_image_to_url_patched", False):
+        return
+    try:
+        from streamlit.elements.lib.image_utils import image_to_url as _modern_image_to_url
+        from streamlit.elements.lib.layout_utils import LayoutConfig
+    except Exception as exc:  # pragma: no cover
+        raise AttributeError("image_to_url unavailable") from exc
+
+    def _compat_image_to_url(image, width, clamp, channels, output_format, image_id):
+        layout = width if hasattr(width, "width") else LayoutConfig(width=width)
+        return _modern_image_to_url(image, layout, clamp, channels, output_format, image_id)
+
+    st_image.image_to_url = _compat_image_to_url  # type: ignore[attr-defined]
+    st_image._roadanomaly_image_to_url_patched = True  # type: ignore[attr-defined]
+
+
 def render_player_stats() -> None:
     profile = _profile()
     c1, c2, c3, c4 = st.columns(4)
@@ -205,39 +228,48 @@ def _render_drawing_tools(image_rgb: np.ndarray) -> np.ndarray | None:
     stroke_color = "#ffffff" if tool == "Gomme" else "#e85d2a"
 
     mask: np.ndarray | None = None
+    canvas_ok = False
     if _canvas_available():
-        from streamlit_drawable_canvas import st_canvas
+        try:
+            _ensure_canvas_streamlit_compat()
+            from streamlit_drawable_canvas import st_canvas
 
-        bg = Image.fromarray(image_rgb).resize((canvas_w, canvas_h), Image.Resampling.BILINEAR)
-        canvas = st_canvas(
-            fill_color="rgba(232, 93, 42, 0.35)",
-            stroke_width=stroke_width,
-            stroke_color=stroke_color,
-            background_image=bg,
-            update_streamlit=True,
-            height=canvas_h,
-            width=canvas_w,
-            drawing_mode=drawing_mode,
-            key=f"hunter_canvas_{st.session_state.get('canvas_key', 0)}",
-            display_toolbar=True,
-        )
-        if canvas.json_data is not None:
-            payload = {
-                "objects": canvas.json_data.get("objects", []),
-                "imageData": getattr(canvas, "image_data", None),
-            }
-            if canvas.image_data is not None:
-                payload["imageData"] = canvas.image_data
-            mask = binary_mask_from_canvas_json(
-                payload,
-                image_hw=(h, w),
-                canvas_width=canvas_w,
-                canvas_height=canvas_h,
+            bg = Image.fromarray(image_rgb).resize((canvas_w, canvas_h), Image.Resampling.BILINEAR)
+            canvas = st_canvas(
+                fill_color="rgba(232, 93, 42, 0.35)",
+                stroke_width=stroke_width,
+                stroke_color=stroke_color,
+                background_image=bg,
+                update_streamlit=True,
+                height=canvas_h,
+                width=canvas_w,
+                drawing_mode=drawing_mode,
+                key=f"hunter_canvas_{st.session_state.get('canvas_key', 0)}",
+                display_toolbar=True,
             )
-    else:
+            canvas_ok = True
+            if canvas.json_data is not None:
+                payload = {
+                    "objects": canvas.json_data.get("objects", []),
+                    "imageData": getattr(canvas, "image_data", None),
+                }
+                if canvas.image_data is not None:
+                    payload["imageData"] = canvas.image_data
+                mask = binary_mask_from_canvas_json(
+                    payload,
+                    image_hw=(h, w),
+                    canvas_width=canvas_w,
+                    canvas_height=canvas_h,
+                )
+        except Exception as exc:
+            st.warning(f"Outil de dessin avancé indisponible ({exc.__class__.__name__}). Mode polygone activé.")
+            canvas_ok = False
+
+    if not canvas_ok:
+        st.image(image_rgb, caption="Image à annoter", use_container_width=True)
         st.info(
-            "Module de dessin avancé indisponible. Utilisez le mode polygone simplifié "
-            "(points séparés par des virgules : x,y)."
+            "Tracez un polygone autour de l’obstacle : une paire x,y par ligne "
+            f"(coordonnées dans l’image, largeur={w}, hauteur={h})."
         )
         raw = st.text_area(
             "Sommets du polygone (x,y par ligne)",
@@ -539,27 +571,22 @@ def render_anomaly_hunter() -> None:
             type=["jpg", "jpeg", "png"],
             key="discovery_upload",
         )
-        license_claim = st.text_input(
-            "Licence / droit d’usage déclaré",
-            placeholder="Ex. photo personnelle, CC BY…",
-        )
-        source_claim = st.text_input("Source de l’image", placeholder="Ex. prise le… / URL…")
         if uploaded is not None:
             raw = uploaded.getvalue()
             if len(raw) > MAX_UPLOAD_BYTES:
                 st.error("Fichier trop volumineux (max 8 Mo).")
             elif st.button("Commencer le défi découverte", type="primary"):
                 try:
-                    if not license_claim.strip() or not source_claim.strip():
-                        raise ValueError("Indiquez la licence et la source avant de continuer.")
                     rgb = load_user_image(raw, filename=uploaded.name)
                     from anomaly_hunter.pool import discovery_meta_from_upload
 
+                    # No URL/licence form for players — defaults only.
+                    # Contributions without declared rights stay ineligible for E3 training export.
                     meta = discovery_meta_from_upload(
                         filename=uploaded.name,
                         image_bytes=raw,
-                        license_claim=license_claim,
-                        source_claim=source_claim,
+                        license_claim="non déclaré",
+                        source_claim=f"import joueur ({uploaded.name})",
                     )
                     meta["image_bytes"] = raw
                     store = AnnotationStore()

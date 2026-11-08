@@ -277,11 +277,13 @@ def welcome_dialog() -> None:
 
 
 def _purge_legacy_choice_keys() -> None:
-    """Drop old radio widget keys that crash Streamlit 1.67 deserialize."""
+    """Drop old choice-widget keys that crash Streamlit 1.67 serde."""
     legacy_keys = (
         "nav_page",
         "nav_main",
+        "nav_seg_v2",
         "hunter_mode",
+        "hunter_mode_seg",
         "hunter_tool",
     )
     for key in legacy_keys:
@@ -289,19 +291,23 @@ def _purge_legacy_choice_keys() -> None:
             del st.session_state[key]
 
 
-def _choice_bar(label: str, options: list[str], *, key: str, default: str | None = None) -> str:
-    """Horizontal choice control without st.radio (avoids RadioSerde session bugs)."""
-    default = default or options[0]
-    current = st.session_state.get(key)
-    if current not in options:
-        st.session_state[key] = default
-    try:
-        value = st.segmented_control(label, options=options, key=key, label_visibility="collapsed")
-    except Exception:
-        value = st.selectbox(label, options=options, key=key, label_visibility="collapsed")
-    if value not in options:
-        return default
-    return str(value)
+def _button_nav(options: list[str], *, state_key: str, default: str) -> str:
+    """Plain buttons only — avoids radio / segmented_control session serde bugs."""
+    if st.session_state.get(state_key) not in options:
+        st.session_state[state_key] = default
+    cols = st.columns(len(options))
+    for i, opt in enumerate(options):
+        with cols[i]:
+            selected = st.session_state[state_key] == opt
+            if st.button(
+                opt,
+                key=f"{state_key}_btn_{i}",
+                use_container_width=True,
+                type="primary" if selected else "secondary",
+            ):
+                st.session_state[state_key] = opt
+                st.rerun()
+    return str(st.session_state[state_key])
 
 
 def render_topbar() -> str:
@@ -309,10 +315,9 @@ def render_topbar() -> str:
     with left:
         st.markdown('<div class="brand">RoadAnomaly</div>', unsafe_allow_html=True)
     with nav:
-        page = _choice_bar(
-            "Navigation",
+        page = _button_nav(
             ["Analyser", "Jouer", "Revue"],
-            key="nav_seg_v2",
+            state_key="nav_page_btn",
             default="Analyser",
         )
     with right:

@@ -1,104 +1,50 @@
 # RoadAnomaly — Project Status
 
-**Last verified:** 2026-11-08 (Stage 2 push; Stage 3 blocked on Colab UI control)  
+**Last verified:** 2026-11-08 (Stages 4–9 deliverables; Stage 5 test pending Colab Run-all)  
 **Branch:** `main`  
-**HEAD:** `d7cc9e4ef2b67acafd7431b2987eaa397c006e13`  
-**Phase 4 implementation commit:** `9e734a1d0af48342f92c084216b1dd1d4c254741`  
-**Remote:** `https://github.com/AhmedChatti/RoadAnomaly.git` (private)
+**HEAD:** `8c780d7dfc68b7e66ba45168608876f9210523f7`  
+**E2 training commit:** `9e734a1d0af48342f92c084216b1dd1d4c254741`
 
 ## One-line status
 
-**Stage 2 COMPLETE** (Phase 4 code pushed). **Stage 3 BLOCKED:** Cursor cannot reliably save T4 runtime settings / Run-all in the Colab browser UI; training notebook is prepared with dual auth + pinned SHA and needs a one-click human Run-all on Tesla T4.
+Validation comparison and academic deliverables are ready. **E2b** is the frozen primary model (val Dice ≈ 0.778 @ thr 0.55). **Test metrics are not yet available** — Stage 5 requires one Colab Run-all of `notebooks/03_final_test_evaluation_colab.ipynb`.
 
-## Phase completion
+## Stage board
 
-| Area | Status | Evidence |
-| --- | --- | --- |
-| Phase 1 protocol / split | FROZEN / VERIFIED | Split SHA `9a01c05c…04585c78`; `configs/default.json` untouched |
-| Phase 2 pipeline | FROZEN / VERIFIED | Unit tests OK; original masks untouched by loader policy |
-| Phase 3 E0 / E1 | FROZEN / AUDIT PASS | Canonical E1 SHA OK; qualitative **regenerated** (documented); E1_1501 weights unavailable (non-blocking) |
-| Phase 4 implementation | PUSHED / NOT TRAINED | On `main` @ `9e734a1` (+ auth notebook `d7cc9e4`); E2a/E2b not executed yet |
-| Final test evaluation | NOT STARTED | Test split hard-blocked |
-| Final notebook / FR report / slides | NOT STARTED / OUTLINES ONLY | Docs 04–06 exist; final deliverables absent |
-| Drive / Colab connectivity | COLAB PATH VERIFIED | User readiness JSON 2026-11-08T16:43:15Z; Cursor→Drive still unavailable |
-
-## Integrity snapshot (Stage 0)
-
-| Check | Result |
+| Stage | Status |
 | --- | --- |
-| Infrastructure commit ancestor of HEAD | PASS (HEAD == required commit) |
-| Unit tests (Stage 1) | **57 ran, 57 passed, 0 failed, 0 skipped** |
-| Phase 3 freeze audit | **PASS** (0 blocking issues) |
-| Split lock SHA-256 | PASS `9a01c05cfc7d33783c4f64b91b0ae423a4d3ad57439fd71ffc029a8f04585c78` |
-| E1 `best.keras` SHA-256 | PASS `567bde326ee5b776bc34132b23012543b35f195ec8d60229d01196eb1a0fb234` |
-| Reloaded val mean Dice @ 0.35 | PASS ≈ `0.568964` |
-| Phase 4 smoke (`weights=None`) | PASS |
-| Local GPU (Windows TF) | None |
-| Free disk on `C:` | **~0.61 GB — critical** |
+| 0 Audit | COMPLETED |
+| 1 Readiness | COMPLETED |
+| 2 Git sync Phase 4 | COMPLETED |
+| 3 E2a/E2b training | COMPLETED |
+| 4 Comparison (val) | COMPLETED |
+| 5 Final test eval | **BLOCKED** — needs Colab one-shot Run-all |
+| 6 FR CRISP-DM report | COMPLETED WITH LIMITATIONS (val only; test TBD) |
+| 7 Final notebook | COMPLETED WITH LIMITATIONS |
+| 8 Presentation materials | COMPLETED WITH LIMITATIONS |
+| 9 Defense guide | COMPLETED WITH LIMITATIONS |
+| Optional Streamlit | NOT STARTED (after mandatory) |
 
-## Frozen E0 / E1 validation metrics (unchanged)
+## Validation leaderboard (mean/image)
 
-| Metric (val, mean per image) | E0 | E1 @ thr 0.35 |
-| --- | ---: | ---: |
-| Dice | 0 | 0.568964 |
-| IoU | 0 | 0.444913 |
-| Recall | 0 | 0.850475 |
-| Accuracy | 0.861964 | 0.866978 |
+| Exp | Thr | Dice | IoU |
+| --- | ---: | ---: | ---: |
+| E0 | 0.50 | 0.000 | 0.000 |
+| E1 | 0.35 | 0.569 | 0.445 |
+| E2a | 0.15 | 0.705 | 0.584 |
+| E2b | **0.55** | **0.778** | **0.686** |
 
-Training threshold for E1 checkpointing: **0.5**. Operational threshold: **0.35**.
+## Key paths
 
-## Working tree (dirty — no commit created)
+- Report: `docs/RAPPORT_TECHNIQUE_CRISP_DM.md`
+- Val analysis: `docs/13_phase4_results_and_analysis.md`
+- Test protocol: `docs/14_final_test_evaluation.md` + freeze JSON
+- Slides: `docs/15_presentation_slide_content.md`
+- Defense: `docs/16_oral_defense_guide_measured.md`
+- Notebooks: `04_final_project_walkthrough.ipynb`, `03_final_test_evaluation_colab.ipynb`
 
-**Modified tracked**
-- `src/models/__init__.py`
-- `src/preprocessing.py`
-- `experiments/metadata/phase3_freeze_audit.json` *(rewritten by Stage 0 re-audit to `status=fail`)*
+## Next human action (Stage 5)
 
-**Untracked Phase 4**
-- `configs/phase4.json`
-- `docs/12_phase4_implementation.md`
-- `scripts/run_phase4_experiments.py`
-- `src/models/unet_mobilenetv2.py`
-- `src/phase4_evaluation.py`
-- `src/phase4_training.py`
-- `tests/test_phase4_model.py`
-- `tests/test_phase4_training.py`
-
-**Created by Stage 0 docs**
-- `docs/PROJECT_STATUS.md`
-- `docs/PROJECT_EXECUTION_LOG.md`
-- `docs/REQUIREMENTS_COMPLIANCE_MATRIX.md`
-- `docs/GOOGLE_DRIVE_COLAB_CONNECTION_REPORT.md`
-
-## Phase 3 artefact gaps (Stage 1 resolution)
-
-See `docs/PHASE3_ARTIFACT_GAP_NOTES.md`.
-
-1. Qualitative PNG — **regenerated** from canonical E1 + val; provenance sidecar present.
-2. Abandoned E1_1501 weights — **unavailable**; metadata kept; audit treats as historical note.
-3. Local canonical E1 backup `best.keras` — **restored** via `backup_phase3_checkpoint.py`.
-
-## Colab readiness (user evidence)
-
-Saved on Drive: `experiments/metadata/colab_environment_readiness.json`
-
-| Check | Result |
-| --- | --- |
-| GPU | Tesla T4 |
-| Dataset | 60/60 frames+labels OK |
-| Split | lock match 42/9/9 |
-| E1 on Drive | SHA match freeze |
-| Writable artefact dirs | OK |
-| Training / ImageNet in that session | false / false |
-| Notebook `ready_for_phase4_training` | true (infrastructure only) |
-
-## Remaining blockers before Stage 3 training
-
-1. ~~Stage 1–2 / Phase 4 push~~ — cleared (`9e734a1`, `d7cc9e4`).
-2. ~~Colab Drive/GPU/dataset/E1~~ — cleared by readiness JSON.
-3. **Colab Run-all** — Cursor browser cannot finish T4 Save + Run-all; human must start training once.
-4. Local free disk low — keep training on Colab+Drive.
-
-## Next action
-
-User runs Colab training notebook (auth already `True`, SHA pinned to `9e734a1`). After E2a/E2b finish, paste checkpoint paths + thresholds so Stages 4–9 can continue.
+Open  
+https://colab.research.google.com/github/AhmedChatti/RoadAnomaly/blob/main/notebooks/03_final_test_evaluation_colab.ipynb  
+→ T4 → Run all (AUTHORIZE_TEST_EVALUATION already True) → paste `phase4_final_test_comparison.csv` / `STAGE5_TEST_EVAL_DONE.json`.

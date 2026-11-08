@@ -222,3 +222,16 @@ Await user confirmation for **Stage 2** (diff review + commit preparation; push 
 `https://colab.research.google.com/github/AhmedChatti/RoadAnomaly/blob/main/notebooks/02_phase4_training_colab.ipynb`  
 → Runtime → Change runtime type → **T4 GPU** → Save → **Runtime → Run all**.  
 When finished, paste E2a/E2b checkpoint paths + selected thresholds (or the Drive metadata JSON). Do not re-tune.
+
+---
+
+## 2026-11-08 — STAGES 3–9 (partial)
+
+**Stage 3:** COMPLETED (user Colab). E2a `…1714` thr 0.15 Dice≈0.705; E2b `…1721` thr 0.55 Dice≈0.778; SHA train `9e734a1`.
+
+**Stage 4:** COMPLETED. Comparison CSV + `docs/13_…` + freeze `FINAL_MODEL_SELECTION_FREEZE.json` (primary E2b).
+
+**Stage 5:** BLOCKED on Colab UI automation. Notebook `03_final_test_evaluation_colab.ipynb` ready (hash verify + one-shot test). No test metrics invented.
+
+**Stages 6–9:** COMPLETED WITH LIMITATIONS (validation evidence only until Stage 5 finishes).  
+HEAD after docs push: `8c780d7…`.

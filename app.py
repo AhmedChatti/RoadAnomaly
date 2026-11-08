@@ -46,33 +46,38 @@ CUSTOM_CSS = """
 
 :root {
   --ink: #15202b;
-  --muted: #5b6b7c;
+  --muted: #3d4b5c;
   --paper: #f6f8fa;
   --card: #ffffff;
-  --line: #e3e8ef;
+  --line: #d5dde7;
   --brand: #0f6e56;
   --brand-deep: #0b5542;
   --accent: #e8f5f0;
   --warn: #8a5a00;
+  /* Force readable light theme even if the browser/OS prefers dark */
+  color-scheme: light;
 }
 
-html, body, [class*="css"] {
-  font-family: "Source Sans 3", "Segoe UI", sans-serif;
-  color: var(--ink);
+html, body, .stApp, [data-testid="stAppViewContainer"],
+[data-testid="stMarkdownContainer"], [data-testid="stWidgetLabel"],
+.stMarkdown, .stText, p, span, label, li {
+  font-family: "Source Sans 3", "Segoe UI", sans-serif !important;
+  color: var(--ink) !important;
 }
+
 .stApp {
   background:
     radial-gradient(900px 420px at 0% -10%, #dff3ea 0%, transparent 55%),
     radial-gradient(800px 380px at 100% 0%, #e8eef6 0%, transparent 50%),
-    linear-gradient(180deg, #f7faf9 0%, #eef2f5 100%);
+    linear-gradient(180deg, #f7faf9 0%, #eef2f5 100%) !important;
 }
 .block-container {
   padding-top: 1rem;
   padding-bottom: 2.5rem;
   max-width: 1080px;
 }
-h1, h2, h3, .brand {
-  font-family: "Manrope", "Segoe UI", sans-serif;
+h1, h2, h3, h4, .brand {
+  font-family: "Manrope", "Segoe UI", sans-serif !important;
   letter-spacing: -0.03em;
   color: var(--ink) !important;
 }
@@ -80,10 +85,37 @@ header[data-testid="stHeader"] { background: transparent; }
 footer { visibility: hidden; }
 #MainMenu { visibility: hidden; }
 
-.topbar {
-  display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 1.1rem;
+/* Metrics, captions, radio/checkbox labels */
+[data-testid="stMetricLabel"], [data-testid="stMetricValue"],
+[data-testid="stMetricDelta"], [data-testid="stCaptionContainer"],
+[data-testid="stWidgetLabel"] p, [data-testid="stWidgetLabel"] span,
+div[role="radiogroup"] label, div[role="radiogroup"] p,
+[data-testid="stCheckbox"] label p, [data-testid="stCheckbox"] span {
+  color: var(--ink) !important;
+  opacity: 1 !important;
 }
+[data-testid="stMetricValue"] { font-weight: 800 !important; color: var(--brand-deep) !important; }
+[data-testid="stMetricLabel"] { color: var(--muted) !important; font-weight: 700 !important; }
+
+/* Inputs: dark text on white field */
+.stTextInput input, .stTextArea textarea, .stNumberInput input,
+[data-baseweb="input"] input, [data-baseweb="textarea"] textarea,
+[data-baseweb="select"] > div {
+  background-color: #ffffff !important;
+  color: var(--ink) !important;
+  border-color: var(--line) !important;
+  caret-color: var(--ink) !important;
+}
+.stTextInput input::placeholder, .stTextArea textarea::placeholder {
+  color: #6b7a8c !important;
+  opacity: 1 !important;
+}
+
+/* Info / warning boxes: keep readable */
+[data-testid="stAlert"] p, [data-testid="stAlert"] span {
+  color: var(--ink) !important;
+}
+
 .brand {
   font-size: 1.35rem; font-weight: 800; color: var(--brand-deep) !important;
 }
@@ -106,7 +138,7 @@ footer { visibility: hidden; }
 .hero p {
   margin: 0;
   max-width: 36rem;
-  color: #d9f5eb;
+  color: #e7fff6 !important;
   font-size: 1.05rem;
   line-height: 1.5;
 }
@@ -117,11 +149,8 @@ footer { visibility: hidden; }
   padding: 1.15rem 1.2rem;
   box-shadow: 0 10px 28px rgba(21, 32, 43, 0.05);
 }
-.card h3 {
-  margin: 0 0 0.35rem 0;
-  font-size: 1.15rem;
-}
-.muted { color: var(--muted); line-height: 1.5; }
+.card h3 { margin: 0 0 0.35rem 0; font-size: 1.15rem; color: var(--ink) !important; }
+.card p, .muted { color: var(--muted) !important; line-height: 1.5; opacity: 1 !important; }
 .steps {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -136,11 +165,11 @@ footer { visibility: hidden; }
 .step .n {
   font-family: Manrope, sans-serif;
   font-weight: 800;
-  color: var(--brand);
+  color: var(--brand) !important;
   font-size: 0.85rem;
 }
-.step .t { font-weight: 700; margin: 0.2rem 0; }
-.step .d { color: var(--muted); font-size: 0.9rem; margin: 0; }
+.step .t { font-weight: 700; margin: 0.2rem 0; color: var(--ink) !important; }
+.step .d { color: var(--muted) !important; font-size: 0.9rem; margin: 0; }
 .metric-lite {
   background: #f4faf7;
   border: 1px solid #d7ebe3;
@@ -149,28 +178,38 @@ footer { visibility: hidden; }
 }
 .metric-lite .lab {
   font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em;
-  color: var(--muted); font-weight: 700;
+  color: var(--muted) !important; font-weight: 700;
 }
 .metric-lite .val {
   font-family: Manrope, sans-serif; font-size: 1.6rem; font-weight: 800;
-  color: var(--brand-deep); margin-top: 0.15rem;
+  color: var(--brand-deep) !important; margin-top: 0.15rem;
 }
 .disclaimer {
   background: #fff8e8;
   border-left: 4px solid #d4a017;
   border-radius: 0 12px 12px 0;
   padding: 0.85rem 1rem;
-  color: #5c4a1d;
+  color: #5c4a1d !important;
   line-height: 1.45;
   margin-top: 0.9rem;
 }
 .panel-title {
   font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.07em;
-  color: var(--brand); font-weight: 800; margin-bottom: 0.25rem;
+  color: var(--brand) !important; font-weight: 800; margin-bottom: 0.25rem;
+}
+div.stButton > button {
+  color: #ffffff !important;
+  font-weight: 700;
+  border-radius: 12px;
 }
 div.stButton > button[kind="primary"] {
-  background: linear-gradient(180deg, #14936f, #0f6e56);
-  border: none; font-weight: 700; border-radius: 12px;
+  background: linear-gradient(180deg, #14936f, #0f6e56) !important;
+  border: none;
+}
+div.stButton > button[kind="secondary"] {
+  background: #243040 !important;
+  border: none;
+  color: #ffffff !important;
 }
 @media (max-width: 800px) {
   .steps { grid-template-columns: 1fr; }

@@ -397,7 +397,9 @@ def _fit_phase4_model(
     )
     duration = time.time() - started
 
-    best_model = keras.models.load_model(ckpt_path, compile=False)
+    from checkpoint_io import load_keras_model_compat
+
+    best_model = load_keras_model_compat(ckpt_path, compile=False)
     ckpt_sha = sha256_file(ckpt_path)
 
     meta = make_phase4_metadata(
@@ -630,7 +632,9 @@ def train_e2b(
         weights=None,
         authorize_imagenet_download=False,
     )
-    loaded = keras.models.load_model(ckpt, compile=False)
+    from checkpoint_io import load_keras_model_compat
+
+    loaded = load_keras_model_compat(ckpt, compile=False)
     model.set_weights(loaded.get_weights())
     finetune = configure_e2b_finetuning(
         model, finetune_from_layer=p4["E2b"]["finetune_from_layer"]

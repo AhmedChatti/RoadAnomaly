@@ -206,7 +206,9 @@ def train_scratch_fcn(
     duration = time.time() - started
 
     # Reload best weights for downstream evaluation.
-    best_model = keras.models.load_model(
+    from checkpoint_io import load_keras_model_compat
+
+    best_model = load_keras_model_compat(
         ckpt_path,
         custom_objects={"bce_dice": bce_dice_loss(positive_weight=positive_weight)},
         compile=False,

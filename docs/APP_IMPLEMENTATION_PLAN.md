@@ -81,5 +81,5 @@ docs/APP_USER_GUIDE.md
 | Inspection | FAIT |
 | Code application | FAIT (`app.py`, `src/app_inference.py`) |
 | Tests unitaires | FAIT (6 OK ; intégration E2b skip sans poids) |
-| Checkpoint E2b local | **MANQUANT — action utilisateur** |
+| Checkpoint E2b local | **INSTALLÉ** (copie depuis Downloads, SHA `280170dc…` vérifié ; inference synthétique OK) |
 | Substitution E0/E1/E2a | Interdite |

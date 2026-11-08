@@ -1,13 +1,13 @@
 # RoadAnomaly — Project Status
 
-**Last verified:** 2026-11-08 (Streamlit app implemented; E2b weights must be copied from Drive)  
+**Last verified:** 2026-11-08 (Streamlit app + local E2b checkpoint validated)  
 **Branch:** `main`  
 **E2 training commit:** `9e734a1d0af48342f92c084216b1dd1d4c254741`  
 **Split lock:** `9a01c05cfc7d33783c4f64b91b0ae423a4d3ad57439fd71ffc029a8f04585c78`
 
 ## One-line status
 
-**E2b** primary model (val Dice ≈ 0.778 @ 0.55; test mean Dice ≈ 0.818). Streamlit demo code is ready; **local E2b `best.keras` is still required** from Google Drive for live inference.
+**E2b** primary model (val Dice ≈ 0.778 @ 0.55; test mean Dice ≈ 0.818). Streamlit app ready; local checkpoint installed and SHA-verified (`280170dc…`).
 
 ## Stage board
 
@@ -18,7 +18,7 @@
 | 7 Final notebook | COMPLETED |
 | 8 Presentation materials | COMPLETED |
 | 9 Defense guide | COMPLETED |
-| Streamlit app | **CODE COMPLETE** — blocked on local E2b checkpoint copy |
+| Streamlit app | **READY** — `streamlit run app.py` (E2b SHA verified locally) |
 
 ## Test leaderboard (mean/image)
 

@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Secrets / local env
+.env
+.env.*
+
+# Original dataset images (large; keep locally, do not push)
+frames/
+
+# Generated processed images (large; regenerable from scripts with care)
+data/processed/train/
+data/processed/val/
+data/processed/test/
+
+# Model weights and experiment binaries
+checkpoints/*
+!checkpoints/.gitkeep
+*.h5
+*.keras
+*.hdf5
+*.ckpt
+*.pb
+*.onnx
+*.pt
+*.pth
+saved_model/
+
+# Experiment outputs that can be large
+experiments/figures/*
+!experiments/figures/.gitkeep
+experiments/results/*
+!experiments/results/.gitkeep
+
+# Keep metadata templates and filled JSON logs
+!experiments/metadata/
+experiments/metadata/*
+!experiments/metadata/_template.json
+!experiments/metadata/*.json
+
+# Caches / Colab noise
+.cache/
+.tensorflow/
+*.log
+
+# Local copies of external papers (prefer citing the Open Access URL)
+papers/

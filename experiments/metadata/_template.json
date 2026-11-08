@@ -1,0 +1,46 @@
+{
+  "experiment_id": "E2a_YYYYMMDD_HHMM",
+  "model_name": "unet_mobilenetv2_frozen",
+  "architecture": "U-Net with MobileNetV2 encoder",
+  "input_height": 288,
+  "input_width": 512,
+  "split_manifest": "data/processed/split_manifest.csv",
+  "split_manifest_sha256": "REPLACE_AFTER_HASHING",
+  "seed": 42,
+  "optimizer": "adam",
+  "learning_rate": 0.001,
+  "batch_size": 4,
+  "epochs_planned": 80,
+  "epochs_run": null,
+  "loss": "binary_crossentropy_plus_dice",
+  "metrics_monitored": ["precision", "recall", "f1", "iou", "dice", "accuracy"],
+  "augmentation": {
+    "horizontal_flip": true,
+    "vertical_flip": false,
+    "rotation_degrees_max": 8,
+    "zoom_range": 0.1,
+    "brightness_delta": 0.15,
+    "contrast_range": 0.15
+  },
+  "checkpoint_selection_criterion": "val_mean_dice",
+  "best_epoch": null,
+  "best_val_metric_name": "val_mean_dice",
+  "best_val_metric_value": null,
+  "threshold_selection": {
+    "split": "val",
+    "metric": "mean_dice",
+    "value": null
+  },
+  "hardware": "google_colab_gpu_or_local_cpu",
+  "software_versions": {
+    "python": null,
+    "tensorflow": null,
+    "keras": null,
+    "numpy": null,
+    "pillow": null
+  },
+  "duration_seconds": null,
+  "checkpoint_path": null,
+  "notes": "",
+  "status": "planned"
+}

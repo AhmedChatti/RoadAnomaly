@@ -1,0 +1,13 @@
+{
+  "split_manifest_path": "data/processed/split_manifest.csv",
+  "file_sha256": "9eb1ee0fad6df0494976efd0d671fcfe85e58f6ac983bbb9dd5210f62f8554b9",
+  "assignment_sha256": "9a01c05cfc7d33783c4f64b91b0ae423a4d3ad57439fd71ffc029a8f04585c78",
+  "n_rows": 60,
+  "counts": {
+    "train": 42,
+    "val": 9,
+    "test": 9
+  },
+  "protocol_version": "1.0",
+  "notes": "Frozen in Phase 1. Do not reshuffle without a new protocol revision."
+}

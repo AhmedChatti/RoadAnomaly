@@ -1,0 +1,165 @@
+{
+  "n_images": 60,
+  "n_sizes": 1,
+  "width_min": 1280,
+  "width_max": 1280,
+  "height_min": 720,
+  "height_max": 720,
+  "anomaly_ratio_min": 0.0037467447916666665,
+  "anomaly_ratio_median": 0.06622938368055556,
+  "anomaly_ratio_mean": 0.09849560546875,
+  "anomaly_ratio_max": 0.4232855902777778,
+  "pixel_anomaly_share": 0.09849560546875,
+  "smallest_frame": "lost_tires08",
+  "largest_frame": "animals09_working_together",
+  "instance_masks": 46,
+  "instance_indexes": 46,
+  "instance_disagreements": 0,
+  "categories": {
+    "animals": 31,
+    "obstacles": 15,
+    "cones": 8,
+    "lost_tires": 3,
+    "vehicle": 3
+  },
+  "by_category": [
+    {
+      "category": "animals",
+      "images": 31,
+      "anomaly_ratio_median": 0.08195529513888888,
+      "anomaly_ratio_mean": 0.1267143047155018,
+      "width_min": 1280,
+      "width_max": 1280,
+      "height_min": 720,
+      "height_max": 720
+    },
+    {
+      "category": "obstacles",
+      "images": 15,
+      "anomaly_ratio_median": 0.06310655381944444,
+      "anomaly_ratio_mean": 0.09496484375,
+      "width_min": 1280,
+      "width_max": 1280,
+      "height_min": 720,
+      "height_max": 720
+    },
+    {
+      "category": "cones",
+      "images": 8,
+      "anomaly_ratio_median": 0.01722710503472222,
+      "anomaly_ratio_mean": 0.028806152343750002,
+      "width_min": 1280,
+      "width_max": 1280,
+      "height_min": 720,
+      "height_max": 720
+    },
+    {
+      "category": "lost_tires",
+      "images": 3,
+      "anomaly_ratio_median": 0.0069520399305555555,
+      "anomaly_ratio_mean": 0.006875,
+      "width_min": 1280,
+      "width_max": 1280,
+      "height_min": 720,
+      "height_max": 720
+    },
+    {
+      "category": "vehicle",
+      "images": 3,
+      "anomaly_ratio_median": 0.09970920138888889,
+      "anomaly_ratio_mean": 0.10201533564814814,
+      "width_min": 1280,
+      "width_max": 1280,
+      "height_min": 720,
+      "height_max": 720
+    }
+  ],
+  "split_counts": {
+    "train": 42,
+    "val": 9,
+    "test": 9
+  },
+  "split_by_category": {
+    "animals": {
+      "train": 21,
+      "val": 5,
+      "test": 5
+    },
+    "obstacles": {
+      "train": 13,
+      "val": 1,
+      "test": 1
+    },
+    "cones": {
+      "train": 4,
+      "val": 2,
+      "test": 2
+    },
+    "lost_tires": {
+      "train": 3,
+      "val": 0,
+      "test": 0
+    },
+    "vehicle": {
+      "train": 1,
+      "val": 1,
+      "test": 1
+    }
+  },
+  "processed_anomaly_ratio_min": 0.002105712890625,
+  "processed_anomaly_pixels_min": 552,
+  "canvas_size": 512,
+  "letterbox_scale": 0.4,
+  "letterbox_content": [
+    512,
+    288
+  ],
+  "letterbox_pad_top": 112,
+  "scene_groups_crossing_splits": 0,
+  "frames_without_instance_mask": [
+    "animals06_sheep_roads_lambs",
+    "animals09_working_together",
+    "animals21_On_The_Road_to_Gondar_Ethiopia",
+    "animals25_jablonna_dziki",
+    "animals31_deer",
+    "cones07",
+    "cones08_can",
+    "obstacles01_boulder",
+    "obstacles02_rock",
+    "obstacles07_czech_hedgehog",
+    "obstacles08_boulder2",
+    "obstacles09_boulder3",
+    "obstacles10_boulder4",
+    "obstacles11_boulder5"
+  ],
+  "split_anomaly_ratio": {
+    "test": {
+      "min": 0.007991536458333334,
+      "median": 0.043229166666666666,
+      "max": 0.31175672743055555
+    },
+    "train": {
+      "min": 0.0037467447916666665,
+      "median": 0.06477213541666665,
+      "max": 0.3684581163194444
+    },
+    "val": {
+      "min": 0.013696831597222223,
+      "median": 0.09961371527777778,
+      "max": 0.4232855902777778
+    }
+  },
+  "figures": {
+    "categories": "C:\\Users\\man\\Downloads\\RoadAnomaly\\reports\\figures\\01_category_counts.png",
+    "resolutions": "C:\\Users\\man\\Downloads\\RoadAnomaly\\reports\\figures\\02_resolution_and_obstacle_size.png",
+    "anomaly_ratio": "C:\\Users\\man\\Downloads\\RoadAnomaly\\reports\\figures\\03_anomaly_area_by_category.png",
+    "class_balance": "C:\\Users\\man\\Downloads\\RoadAnomaly\\reports\\figures\\04_pixel_class_balance.png",
+    "examples": "C:\\Users\\man\\Downloads\\RoadAnomaly\\reports\\figures\\05_image_mask_overlay_examples.png",
+    "size_extremes": "C:\\Users\\man\\Downloads\\RoadAnomaly\\reports\\figures\\06_small_and_large_anomalies.png",
+    "splits": "C:\\Users\\man\\Downloads\\RoadAnomaly\\reports\\figures\\07_split_composition.png",
+    "preprocess": "C:\\Users\\man\\Downloads\\RoadAnomaly\\reports\\figures\\08_preprocessing_letterbox.png",
+    "contact_sheet": "C:\\Users\\man\\Downloads\\RoadAnomaly\\reports\\figures\\09_all_scenes_by_split.png",
+    "repeated_scenes": "C:\\Users\\man\\Downloads\\RoadAnomaly\\reports\\figures\\10_repeated_scenes.png",
+    "correspondence": "C:\\Users\\man\\Downloads\\RoadAnomaly\\reports\\figures\\11_mask_correspondence_zoom.png"
+  }
+}

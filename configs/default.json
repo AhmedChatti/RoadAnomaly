@@ -1,0 +1,111 @@
+{
+  "project": {
+    "name": "RoadAnomaly",
+    "title_en": "Road Anomaly Detection Through Supervised Semantic Segmentation",
+    "title_fr": "Detection et localisation des anomalies routieres par segmentation semantique supervisee",
+    "protocol_document": "docs/02_protocole_scientifique_phase1.md",
+    "protocol_version": "1.0"
+  },
+  "paths": {
+    "dataset_root": ".",
+    "frame_list": "frame_list.json",
+    "frames_dir": "frames",
+    "split_manifest": "data/processed/split_manifest.csv",
+    "checkpoints_dir": "checkpoints",
+    "experiments_metadata_dir": "experiments/metadata",
+    "experiments_results_dir": "experiments/results",
+    "experiments_figures_dir": "experiments/figures"
+  },
+  "split": {
+    "policy": "preserve_existing_42_9_9",
+    "train": 42,
+    "val": 9,
+    "test": 9,
+    "reshuffle_allowed": false,
+    "lock_file": "experiments/metadata/split_lock.json",
+    "assignment_sha256": "9a01c05cfc7d33783c4f64b91b0ae423a4d3ad57439fd71ffc029a8f04585c78"
+  },
+  "preprocessing": {
+    "input_height": 288,
+    "input_width": 512,
+    "preserve_aspect_ratio": true,
+    "use_letterbox_padding": false,
+    "image_interpolation": "bilinear",
+    "mask_interpolation": "nearest",
+    "official_background_label": 0,
+    "official_anomaly_label": 2,
+    "model_background_label": 0,
+    "model_anomaly_label": 1,
+    "normalize": {
+      "scratch_cnn": "scale_0_1",
+      "mobilenetv2": "imagenet"
+    }
+  },
+  "augmentation": {
+    "enabled_on_split": "train",
+    "horizontal_flip": true,
+    "vertical_flip": false,
+    "rotation_degrees_max": 8,
+    "zoom_range": 0.1,
+    "translation_fraction": 0.05,
+    "brightness_delta": 0.15,
+    "contrast_range": 0.15,
+    "p_horizontal_flip": 0.5,
+    "p_rotation": 0.5,
+    "p_affine": 0.5,
+    "p_brightness_contrast": 0.5,
+    "notes": "Probabilities set in Phase 2 for the shared pipeline; freeze before Phase 3 training runs."
+  },
+  "training": {
+    "seed": 42,
+    "optimizer": "adam",
+    "learning_rate_scratch": 0.001,
+    "learning_rate_decoder": 0.001,
+    "learning_rate_finetune_encoder": 0.0001,
+    "batch_size": 4,
+    "epochs_max": 80,
+    "early_stopping_patience": 12,
+    "checkpoint_metric": "val_mean_dice",
+    "checkpoint_mode": "max"
+  },
+  "evaluation": {
+    "default_threshold": 0.5,
+    "threshold_selection_split": "val",
+    "threshold_selection_metric": "mean_dice",
+    "test_evaluation": "once_after_model_and_threshold_frozen",
+    "report_pixel_accuracy": true,
+    "pixel_accuracy_is_primary": false,
+    "report_global_pixel_metrics": true,
+    "report_per_image_metrics": true
+  },
+  "experiments": {
+    "E0_all_background": true,
+    "E1_cnn_scratch": true,
+    "E2a_unet_mobilenetv2_frozen": true,
+    "E2b_unet_mobilenetv2_finetune": true,
+    "E3_limited_ablations": "optional",
+    "E4_autoencoder_competitor": false
+  },
+  "autoencoder": {
+    "status": "feasibility_section_only",
+    "train_on_roadanomaly_alone": false,
+    "external_normal_corpus_in_scope": false
+  },
+  "hardware": {
+    "intended_training_environment": "google_colab_gpu",
+    "local_roles": [
+      "repository_management",
+      "code_development",
+      "dataset_inspection",
+      "lightweight_tests",
+      "documentation",
+      "streamlit_app"
+    ]
+  },
+  "stack": {
+    "deep_learning": "tensorflow_keras",
+    "demo": "streamlit",
+    "documentation_language": "fr",
+    "code_identifiers_language": "en"
+  }
+}

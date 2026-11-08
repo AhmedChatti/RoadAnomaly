@@ -237,13 +237,22 @@ def welcome_dialog() -> None:
             st.rerun()
 
 
-def render_topbar() -> None:
-    left, right = st.columns([3, 1])
+def render_topbar() -> str:
+    left, nav, right = st.columns([1.4, 3.2, 1])
     with left:
         st.markdown('<div class="brand">RoadAnomaly</div>', unsafe_allow_html=True)
+    with nav:
+        page = st.radio(
+            "Navigation",
+            ["Analyser", "Jouer", "Revue"],
+            horizontal=True,
+            label_visibility="collapsed",
+            key="nav_page",
+        )
     with right:
         if st.button("Aide", use_container_width=True):
             st.session_state["force_help"] = True
+    return page
 
 
 def render_hero() -> None:
@@ -331,13 +340,25 @@ def render_privacy() -> None:
 
 
 def main() -> None:
-    render_topbar()
+    page = render_topbar()
 
     if st.session_state.get("force_help"):
         st.session_state["force_help"] = False
         welcome_dialog()
-    elif not _is_onboarded():
+    elif not _is_onboarded() and page == "Analyser":
         welcome_dialog()
+
+    if page == "Jouer":
+        from anomaly_hunter.ui import render_anomaly_hunter
+
+        render_anomaly_hunter()
+        return
+
+    if page == "Revue":
+        from anomaly_hunter.ui import render_admin_review
+
+        render_admin_review()
+        return
 
     render_hero()
 

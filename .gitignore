@@ -38,6 +38,10 @@ data/processed/train/
 data/processed/val/
 data/processed/test/
 
+# Human annotation contributions (privacy — local / consented uploads only)
+data/annotations/
+!data/annotations/.gitkeep
+
 # Model weights and experiment binaries (persist on Drive, not GitHub)
 checkpoints/*
 !checkpoints/.gitkeep

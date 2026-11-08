@@ -45,6 +45,12 @@ If you find this dataset useful, please cite:
 
 Interface grand public pour analyser une image de route et visualiser les zones signalées.
 
+Navigation :
+
+- **Analyser** — upload d’image et prédiction officielle (modèle de référence figé).
+- **Jouer** — *Anomaly Hunter* : annotez des obstacles, comparez, contribuez (candidates).
+- **Revue** — interface admin pour valider / exporter les contributions.
+
 ### Installer et lancer
 
 ```powershell
@@ -52,7 +58,12 @@ pip install -r requirements-app.txt
 streamlit run app.py
 ```
 
-Guide utilisateur : `docs/APP_USER_GUIDE.md`.
+Guides :
+
+- Utilisateur app : `docs/APP_USER_GUIDE.md`
+- Anomaly Hunter : `docs/ANOMALY_HUNTER_GUIDE.md`
+- Annotations humaines : `docs/HUMAN_ANNOTATION_PIPELINE.md`
+- Roadmap E3 (futur, pas d’entraînement auto) : `docs/FUTURE_E3_ROADMAP.md`
 
 ### Fichier modèle (requis, hors Git)
 

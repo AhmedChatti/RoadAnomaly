@@ -246,3 +246,15 @@ HEAD after docs push: `8c780d7…`.
 **User action:** copy Drive  
 `…/checkpoints/phase4/E2b_unet_mobilenetv2_finetune_20261108_1721/best.keras`  
 → local `checkpoints/phase4/E2b_unet_mobilenetv2_finetune_20261108_1721/best.keras` then `streamlit run app.py`.
+
+---
+
+## 2026-11-08 — Anomaly Hunter + human-in-the-loop collection
+
+**Implemented:** `src/anomaly_hunter/` (pool, masks, scoring, store, export, gamification, UI), nav **Jouer** / **Revue** in `app.py`, docs `ANOMALY_HUNTER_GUIDE.md`, `HUMAN_ANNOTATION_PIPELINE.md`, `FUTURE_E3_ROADMAP.md`, tests `tests/test_anomaly_hunter.py`.
+
+**Safeguards:** E2b weights untouched (SHA `280170dc…` re-verified); threshold 0.55 unchanged; training challenges exclude locked **test** split; annotations are candidates (`pending_review`…); no auto-train / no E3 execution.
+
+**Storage:** consented contributions under `data/annotations/` (gitignored); admin export to versioned `exports/v…`.
+
+**Tests:** full suite green after feature add (incl. anomaly hunter + app inference).

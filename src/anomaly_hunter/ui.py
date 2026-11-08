@@ -458,14 +458,21 @@ def render_anomaly_hunter() -> None:
     )
 
     mode_options = ["Entraînement (avec référence)", "Découverte (nouvelle image)"]
-    if st.session_state.get("hunter_mode") not in mode_options:
-        st.session_state.pop("hunter_mode", None)
-    mode = st.radio(
-        "Type de défi",
-        mode_options,
-        horizontal=True,
-        key="hunter_mode",
-    )
+    # Avoid st.radio — Streamlit 1.67 RadioSerde can crash on legacy session values.
+    if "hunter_mode" in st.session_state:
+        del st.session_state["hunter_mode"]
+    if st.session_state.get("hunter_mode_seg") not in mode_options:
+        st.session_state["hunter_mode_seg"] = mode_options[0]
+    try:
+        mode = st.segmented_control(
+            "Type de défi",
+            options=mode_options,
+            key="hunter_mode_seg",
+        )
+    except Exception:
+        mode = st.selectbox("Type de défi", mode_options, key="hunter_mode_seg")
+    if mode not in mode_options:
+        mode = mode_options[0]
 
     if st.session_state.get("game_phase") == "reveal":
         _render_reveal()

@@ -276,16 +276,32 @@ def welcome_dialog() -> None:
             st.rerun()
 
 
-def _safe_radio(label: str, options: list[str], *, key: str, **kwargs):
-    """Radio wrapper that clears incompatible session values (Streamlit upgrades)."""
-    # Drop legacy key that stored integer indices under older Streamlit builds.
-    legacy = "nav_page" if key == "nav_main" else None
-    if legacy and legacy in st.session_state:
-        del st.session_state[legacy]
+def _purge_legacy_choice_keys() -> None:
+    """Drop old radio widget keys that crash Streamlit 1.67 deserialize."""
+    legacy_keys = (
+        "nav_page",
+        "nav_main",
+        "hunter_mode",
+        "hunter_tool",
+    )
+    for key in legacy_keys:
+        if key in st.session_state:
+            del st.session_state[key]
+
+
+def _choice_bar(label: str, options: list[str], *, key: str, default: str | None = None) -> str:
+    """Horizontal choice control without st.radio (avoids RadioSerde session bugs)."""
+    default = default or options[0]
     current = st.session_state.get(key)
-    if current is not None and current not in options:
-        del st.session_state[key]
-    return st.radio(label, options, key=key, **kwargs)
+    if current not in options:
+        st.session_state[key] = default
+    try:
+        value = st.segmented_control(label, options=options, key=key, label_visibility="collapsed")
+    except Exception:
+        value = st.selectbox(label, options=options, key=key, label_visibility="collapsed")
+    if value not in options:
+        return default
+    return str(value)
 
 
 def render_topbar() -> str:
@@ -293,12 +309,11 @@ def render_topbar() -> str:
     with left:
         st.markdown('<div class="brand">RoadAnomaly</div>', unsafe_allow_html=True)
     with nav:
-        page = _safe_radio(
+        page = _choice_bar(
             "Navigation",
             ["Analyser", "Jouer", "Revue"],
-            key="nav_main",
-            horizontal=True,
-            label_visibility="collapsed",
+            key="nav_seg_v2",
+            default="Analyser",
         )
     with right:
         if st.button("Aide", use_container_width=True):
@@ -391,16 +406,7 @@ def render_privacy() -> None:
 
 
 def main() -> None:
-    # Purge legacy radio values that break Streamlit ≥1.6x deserialize (int index vs label).
-    for bad_key in ("nav_page",):
-        val = st.session_state.get(bad_key)
-        if isinstance(val, (int, float)) or (
-            isinstance(val, str) and val not in {"Analyser", "Jouer", "Revue"}
-        ):
-            del st.session_state[bad_key]
-        elif bad_key in st.session_state and not isinstance(val, str):
-            del st.session_state[bad_key]
-
+    _purge_legacy_choice_keys()
     page = render_topbar()
 
     if st.session_state.get("force_help"):

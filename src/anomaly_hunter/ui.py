@@ -1,8 +1,10 @@
-"""Streamlit UI for Anomaly Hunter (French) + admin review."""
+"""Streamlit UI for Anomaly Hunter (French) + admin review.
+
+Gameplay: reCAPTCHA-style tile selection (no freehand drawing, no timer).
+"""
 
 from __future__ import annotations
 
-import time
 import uuid
 from typing import Any
 
@@ -18,11 +20,13 @@ from anomaly_hunter.gamification import (
     default_profile,
 )
 from anomaly_hunter.masks import (
+    DEFAULT_TILE_GRID,
     MAX_UPLOAD_BYTES,
-    binary_mask_from_canvas_json,
     difference_view,
     load_ground_truth_mask,
+    mask_from_selected_tiles,
     overlay_mask_rgb,
+    overlay_tile_grid_rgb,
     validate_player_mask,
 )
 from anomaly_hunter.pool import ChallengeType, load_training_challenges, pick_challenge
@@ -35,8 +39,7 @@ from app_inference import (
     predict_e2b,
 )
 
-COUNTDOWN_SECONDS = 15
-CANVAS_DISPLAY_WIDTH = 720
+TILE_GRID = DEFAULT_TILE_GRID
 
 
 def _ensure_profile() -> None:
@@ -78,36 +81,10 @@ def _get_model():
     return load_e2b_model(verify_sha=True)
 
 
-def _canvas_available() -> bool:
-    try:
-        import streamlit_drawable_canvas  # noqa: F401
-
-        return True
-    except Exception:
-        return False
-
-
-def _ensure_canvas_streamlit_compat() -> None:
-    """streamlit-drawable-canvas ≤0.9.x expects image_to_url(image, width, ...) on elements.image.
-
-    Streamlit 1.67 moved the helper and changed the 2nd argument to LayoutConfig.
-    """
-    import streamlit.elements.image as st_image
-
-    if getattr(st_image, "_roadanomaly_image_to_url_patched", False):
-        return
-    try:
-        from streamlit.elements.lib.image_utils import image_to_url as _modern_image_to_url
-        from streamlit.elements.lib.layout_utils import LayoutConfig
-    except Exception as exc:  # pragma: no cover
-        raise AttributeError("image_to_url unavailable") from exc
-
-    def _compat_image_to_url(image, width, clamp, channels, output_format, image_id):
-        layout = width if hasattr(width, "width") else LayoutConfig(width=width)
-        return _modern_image_to_url(image, layout, clamp, channels, output_format, image_id)
-
-    st_image.image_to_url = _compat_image_to_url  # type: ignore[attr-defined]
-    st_image._roadanomaly_image_to_url_patched = True  # type: ignore[attr-defined]
+def _clear_game_state() -> None:
+    for k in list(st.session_state.keys()):
+        if k.startswith("game_") or k.startswith("tile_btn_"):
+            del st.session_state[k]
 
 
 def render_player_stats() -> None:
@@ -142,7 +119,7 @@ def _start_training_round() -> None:
         return
     rgb = challenge.load_rgb()
     st.session_state["game_mode"] = "training"
-    st.session_state["game_phase"] = "draw"
+    st.session_state["game_phase"] = "select"
     st.session_state["game_challenge"] = {
         "challenge_id": challenge.challenge_id,
         "frame_id": challenge.frame_id,
@@ -153,16 +130,15 @@ def _start_training_round() -> None:
         "split": challenge.split,
     }
     st.session_state["game_image"] = rgb
-    st.session_state["game_deadline"] = time.time() + COUNTDOWN_SECONDS
     st.session_state["game_result"] = None
     st.session_state["game_submitted"] = False
-    st.session_state["game_expired"] = False
-    st.session_state["canvas_key"] = st.session_state.get("canvas_key", 0) + 1
+    st.session_state["game_selected_tiles"] = set()
+    st.session_state["game_round_id"] = uuid.uuid4().hex[:8]
 
 
 def _start_discovery_round(image_rgb: np.ndarray, filename: str, meta: dict[str, Any]) -> None:
     st.session_state["game_mode"] = "discovery"
-    st.session_state["game_phase"] = "draw"
+    st.session_state["game_phase"] = "select"
     st.session_state["game_challenge"] = {
         "challenge_id": f"discovery::{meta.get('content_sha256', '')[:12]}",
         "frame_id": None,
@@ -174,133 +150,87 @@ def _start_discovery_round(image_rgb: np.ndarray, filename: str, meta: dict[str,
     }
     st.session_state["game_image"] = image_rgb
     st.session_state["game_image_bytes"] = meta.get("image_bytes")
-    st.session_state["game_deadline"] = time.time() + COUNTDOWN_SECONDS
     st.session_state["game_result"] = None
     st.session_state["game_submitted"] = False
-    st.session_state["game_expired"] = False
-    st.session_state["canvas_key"] = st.session_state.get("canvas_key", 0) + 1
+    st.session_state["game_selected_tiles"] = set()
+    st.session_state["game_round_id"] = uuid.uuid4().hex[:8]
 
 
-def _render_drawing_tools(image_rgb: np.ndarray) -> np.ndarray | None:
-    h, w = image_rgb.shape[:2]
-    scale = CANVAS_DISPLAY_WIDTH / max(w, 1)
-    canvas_w = int(round(w * scale))
-    canvas_h = int(round(h * scale))
-    # Keep aspect; clamp height for mobile
-    if canvas_h > 480:
-        scale = 480 / h
-        canvas_w = int(round(w * scale))
-        canvas_h = int(round(h * scale))
+def _selected_tiles() -> set[tuple[int, int]]:
+    raw = st.session_state.get("game_selected_tiles") or set()
+    out: set[tuple[int, int]] = set()
+    for item in raw:
+        if isinstance(item, (list, tuple)) and len(item) == 2:
+            out.add((int(item[0]), int(item[1])))
+    return out
 
-    deadline = float(st.session_state.get("game_deadline", time.time()))
-    remaining = max(0.0, deadline - time.time())
-    remaining_i = int(remaining)
-    st.progress(
-        min(1.0, remaining / COUNTDOWN_SECONDS) if COUNTDOWN_SECONDS else 0.0,
-        text=f"Temps restant : {remaining_i} s",
-    )
-    if remaining <= 0:
-        st.session_state["game_expired"] = True
-        st.error("Temps écoulé. La validation est refusée — lancez une nouvelle manche.")
+
+def _toggle_tile(row: int, col: int) -> None:
+    selected = _selected_tiles()
+    key = (row, col)
+    if key in selected:
+        selected.remove(key)
     else:
-        st.session_state["game_expired"] = False
-    # Force a periodic refresh while drawing so the countdown updates.
-    if remaining > 0 and st.session_state.get("game_phase") == "draw":
-        try:
-            from streamlit_autorefresh import st_autorefresh  # type: ignore
+        selected.add(key)
+    st.session_state["game_selected_tiles"] = selected
 
-            st_autorefresh(interval=1000, key="hunter_timer_refresh")
-        except Exception:
-            st.caption("Astuce : interagissez avec la page pour actualiser le compte à rebours.")
 
-    tool_options = ["Pinceau", "Rectangle", "Gomme"]
-    if st.session_state.get("hunter_tool") not in tool_options:
-        st.session_state.pop("hunter_tool", None)
-    tool = st.radio(
-        "Outil",
-        tool_options,
-        horizontal=True,
-        key="hunter_tool",
+def _render_tile_picker(image_rgb: np.ndarray) -> np.ndarray | None:
+    """reCAPTCHA-style grid: click every tile that contains the obstacle."""
+    h, w = image_rgb.shape[:2]
+    selected = _selected_tiles()
+    round_id = st.session_state.get("game_round_id", "r")
+
+    st.markdown("### Sélectionnez les cases où se trouve l’obstacle")
+    st.caption(
+        "Comme sur Google : cliquez sur toutes les cases qui contiennent l’obstacle. "
+        "Vous pouvez modifier votre choix librement, sans limite de temps."
     )
-    stroke_width = st.slider("Épaisseur", 4, 48, 18, key="hunter_brush")
 
-    drawing_mode = {"Pinceau": "freedraw", "Rectangle": "rect", "Gomme": "freedraw"}[tool]
-    stroke_color = "#ffffff" if tool == "Gomme" else "#e85d2a"
+    preview = overlay_tile_grid_rgb(image_rgb, selected, grid=TILE_GRID)
+    st.image(preview, use_container_width=True)
 
-    mask: np.ndarray | None = None
-    canvas_ok = False
-    if _canvas_available():
-        try:
-            _ensure_canvas_streamlit_compat()
-            from streamlit_drawable_canvas import st_canvas
-
-            bg = Image.fromarray(image_rgb).resize((canvas_w, canvas_h), Image.Resampling.BILINEAR)
-            canvas = st_canvas(
-                fill_color="rgba(232, 93, 42, 0.35)",
-                stroke_width=stroke_width,
-                stroke_color=stroke_color,
-                background_image=bg,
-                update_streamlit=True,
-                height=canvas_h,
-                width=canvas_w,
-                drawing_mode=drawing_mode,
-                key=f"hunter_canvas_{st.session_state.get('canvas_key', 0)}",
-                display_toolbar=True,
+    st.write("Cases :")
+    for row in range(TILE_GRID):
+        cols = st.columns(TILE_GRID)
+        for col in range(TILE_GRID):
+            y0, y1, x0, x1 = (
+                row * h // TILE_GRID,
+                (row + 1) * h // TILE_GRID,
+                col * w // TILE_GRID,
+                (col + 1) * w // TILE_GRID,
             )
-            canvas_ok = True
-            if canvas.json_data is not None:
-                payload = {
-                    "objects": canvas.json_data.get("objects", []),
-                    "imageData": getattr(canvas, "image_data", None),
-                }
-                if canvas.image_data is not None:
-                    payload["imageData"] = canvas.image_data
-                mask = binary_mask_from_canvas_json(
-                    payload,
-                    image_hw=(h, w),
-                    canvas_width=canvas_w,
-                    canvas_height=canvas_h,
-                )
-        except Exception as exc:
-            st.warning(f"Outil de dessin avancé indisponible ({exc.__class__.__name__}). Mode polygone activé.")
-            canvas_ok = False
+            tile = image_rgb[y0:y1, x0:x1]
+            # Slightly enlarge tiny previews for buttons area
+            with cols[col]:
+                st.image(tile, use_container_width=True)
+                is_on = (row, col) in selected
+                label = "✓ Sélectionné" if is_on else "Choisir"
+                if st.button(
+                    label,
+                    key=f"tile_btn_{round_id}_{row}_{col}",
+                    use_container_width=True,
+                    type="primary" if is_on else "secondary",
+                ):
+                    _toggle_tile(row, col)
+                    st.rerun()
 
-    if not canvas_ok:
-        st.image(image_rgb, caption="Image à annoter", use_container_width=True)
-        st.info(
-            "Tracez un polygone autour de l’obstacle : une paire x,y par ligne "
-            f"(coordonnées dans l’image, largeur={w}, hauteur={h})."
-        )
-        raw = st.text_area(
-            "Sommets du polygone (x,y par ligne)",
-            placeholder="120,80\n200,90\n180,160",
-            key="poly_fallback",
-        )
-        if raw.strip():
-            from PIL import ImageDraw
+    c_clear, _ = st.columns([1, 3])
+    with c_clear:
+        if st.button("Tout désélectionner", use_container_width=True):
+            st.session_state["game_selected_tiles"] = set()
+            st.rerun()
 
-            pts = []
-            for line in raw.strip().splitlines():
-                parts = [p.strip() for p in line.replace(";", ",").split(",") if p.strip()]
-                if len(parts) >= 2:
-                    pts.append((float(parts[0]), float(parts[1])))
-            img = Image.new("L", (w, h), 0)
-            if len(pts) >= 3:
-                ImageDraw.Draw(img).polygon(pts, fill=255)
-            mask = (np.asarray(img) > 0).astype(np.uint8)
-
-    return mask
+    if not selected:
+        return None
+    return mask_from_selected_tiles((h, w), selected, grid=TILE_GRID)
 
 
 def _assert_submission_allowed() -> None:
-    if st.session_state.get("game_phase") != "draw":
+    if st.session_state.get("game_phase") != "select":
         raise ValueError("Aucune manche active.")
     if st.session_state.get("game_submitted"):
         raise ValueError("Cette manche a déjà été soumise.")
-    deadline = float(st.session_state.get("game_deadline", 0))
-    if time.time() > deadline + 0.25:  # small clock skew tolerance
-        st.session_state["game_expired"] = True
-        raise ValueError("Temps écoulé — soumission refusée. Aucun point attribué.")
 
 
 def _submit_training(player_mask: np.ndarray) -> None:
@@ -314,7 +244,6 @@ def _submit_training(player_mask: np.ndarray) -> None:
     with st.spinner("Comparaison avec la référence et la prédiction automatique…"):
         model = _get_model()
         inf = predict_e2b(model, image_rgb)
-        # Official threshold is frozen inside predict_e2b
         assert abs(float(inf.threshold) - E2B_THRESHOLD) < 1e-12
         ai_full = inf.binary_full
         score = score_training_round(
@@ -350,7 +279,8 @@ def _submit_training(player_mask: np.ndarray) -> None:
             "player_iou": score.player_iou,
             "ai_dice": score.ai_dice,
             "ai_iou": score.ai_iou,
-            "note": "game_metrics_only",
+            "note": "game_metrics_only_tile_grid",
+            "tile_grid": TILE_GRID,
         },
         retain_image=bool(consent),
     )
@@ -377,8 +307,8 @@ def _submit_discovery(player_mask: np.ndarray) -> None:
     consent = st.session_state.get("hunter_consent", False)
     if not consent:
         raise ValueError(
-            "Pour une image découverte, le consentement est requis afin d’enregistrer "
-            "votre annotation candidate (sans statut de vérité terrain)."
+            "Pour une image découverte, cochez le consentement afin d’enregistrer "
+            "votre contribution candidate."
         )
 
     with st.spinner("Prédiction automatique en cours…"):
@@ -403,9 +333,9 @@ def _submit_discovery(player_mask: np.ndarray) -> None:
         ai_mask=inf.binary_full,
         ai_probability=inf.probability_full,
         image_source=ch.get("source_note") or ch.get("filename") or "upload",
-        license_info=ch.get("license_note") or "déclaré par le joueur",
+        license_info=ch.get("license_note") or "non déclaré",
         frame_id=None,
-        game_score={"points": 5, "note": "participation_only_no_gt"},
+        game_score={"points": 5, "note": "participation_only_no_gt", "tile_grid": TILE_GRID},
         retain_image=True,
     )
 
@@ -422,28 +352,44 @@ def _submit_discovery(player_mask: np.ndarray) -> None:
     }
 
 
+def _thanks_banner() -> None:
+    st.success(
+        "Merci pour votre contribution ! "
+        "Votre aide nous permet d’améliorer la détection des anomalies routières."
+    )
+
+
 def _render_reveal() -> None:
     res = st.session_state.get("game_result") or {}
     image_rgb = st.session_state["game_image"]
     mode = st.session_state.get("game_mode")
-    st.success("Manche terminée !")
+    _thanks_banner()
 
-    tabs = st.tabs(["Comparaison", "Détails", "Nouvelle manche"])
+    tabs = st.tabs(["Comparaison", "Détails", "Continuer"])
     with tabs[0]:
         c1, c2, c3 = st.columns(3)
         with c1:
-            st.markdown("**Votre annotation**")
-            st.image(overlay_mask_rgb(image_rgb, res["player_mask"], color=(232, 93, 42)), use_container_width=True)
+            st.markdown("**Vos cases**")
+            st.image(
+                overlay_mask_rgb(image_rgb, res["player_mask"], color=(232, 93, 42)),
+                use_container_width=True,
+            )
         with c2:
             st.markdown("**Prédiction automatique**")
             st.image(res["overlay_ai"], use_container_width=True)
         with c3:
             if res.get("gt") is not None:
                 st.markdown("**Référence vérifiée**")
-                st.image(overlay_mask_rgb(image_rgb, res["gt"], color=(40, 160, 90)), use_container_width=True)
+                st.image(
+                    overlay_mask_rgb(image_rgb, res["gt"], color=(40, 160, 90)),
+                    use_container_width=True,
+                )
             else:
                 st.markdown("**Différence (vous vs IA)**")
-                st.image(difference_view(res["player_mask"], res["ai_mask"]), use_container_width=True)
+                st.image(
+                    difference_view(res["player_mask"], res["ai_mask"]),
+                    use_container_width=True,
+                )
                 st.caption(
                     "Vert = accord · Rouge = vous seul · Bleu = IA seule. "
                     "Sans vérité terrain, aucun score n’est validé."
@@ -466,14 +412,21 @@ def _render_reveal() -> None:
                 "Défi découverte : aucune métrique Dice/IoU validée (pas de masque de référence). "
                 "Votre annotation est une **contribution candidate** en attente de revue humaine."
             )
-        st.write(f"ID contribution : `{res.get('contribution_id')}` — statut : `{res.get('status')}`")
+        st.write(
+            f"ID contribution : `{res.get('contribution_id')}` — statut : `{res.get('status')}`"
+        )
 
     with tabs[2]:
-        if st.button("Nouvelle manche", type="primary"):
-            for k in list(st.session_state.keys()):
-                if k.startswith("game_"):
-                    del st.session_state[k]
-            st.rerun()
+        a, b = st.columns(2)
+        with a:
+            if st.button("Nouvelle manche", type="primary", use_container_width=True):
+                _clear_game_state()
+                st.rerun()
+        with b:
+            if st.button("Quitter le jeu", use_container_width=True):
+                _clear_game_state()
+                st.session_state["hunter_lobby_thanks"] = True
+                st.rerun()
 
 
 def render_anomaly_hunter() -> None:
@@ -483,6 +436,9 @@ def render_anomaly_hunter() -> None:
         "Repérez les obstacles présents sur la route et aidez-nous à améliorer "
         "la détection des anomalies routières."
     )
+    if st.session_state.pop("hunter_lobby_thanks", False):
+        _thanks_banner()
+
     render_player_stats()
 
     name = st.text_input(
@@ -515,33 +471,28 @@ def render_anomaly_hunter() -> None:
         _render_reveal()
         return
 
-    if st.session_state.get("game_phase") == "draw" and "game_image" in st.session_state:
-        st.markdown("### Annotez l’obstacle")
-        st.caption("Dessinez autour de l’obstacle. Vous pouvez gommer et corriger avant de valider.")
-        mask = _render_drawing_tools(st.session_state["game_image"])
-        col_a, col_b = st.columns(2)
-        expired = bool(st.session_state.get("game_expired")) or (
-            time.time() > float(st.session_state.get("game_deadline", 0))
-        )
+    if st.session_state.get("game_phase") == "select" and "game_image" in st.session_state:
+        mask = _render_tile_picker(st.session_state["game_image"])
+        col_a, col_b, col_c = st.columns(3)
         with col_a:
             submit = st.button(
-                "Valider mon annotation",
+                "Valider ma sélection",
                 type="primary",
                 use_container_width=True,
-                disabled=expired or bool(st.session_state.get("game_submitted")),
+                disabled=bool(st.session_state.get("game_submitted")),
             )
         with col_b:
-            if st.button("Abandonner", use_container_width=True):
-                for k in list(st.session_state.keys()):
-                    if k.startswith("game_"):
-                        del st.session_state[k]
+            if st.button("Quitter", use_container_width=True):
+                _clear_game_state()
+                st.session_state["hunter_lobby_thanks"] = True
                 st.rerun()
+        with col_c:
+            st.caption("Prenez votre temps — aucun chronomètre.")
+
         if submit:
             try:
-                if expired:
-                    raise ValueError("Temps écoulé — soumission refusée.")
                 if mask is None or int((mask > 0).sum()) == 0:
-                    st.error("Annotation vide refusée. Dessinez une zone avant de valider.")
+                    st.error("Sélectionnez au moins une case contenant l’obstacle.")
                 elif st.session_state.get("game_mode") == "training":
                     _submit_training(mask)
                     st.rerun()
@@ -555,15 +506,15 @@ def render_anomaly_hunter() -> None:
     # Lobby
     if mode.startswith("Entraînement"):
         st.info(
-            "Images autorisées uniquement (splits train/val). Le jeu **n’utilise jamais** "
-            "le jeu de test verrouillé."
+            "Choisissez les cases de la photo qui contiennent l’obstacle. "
+            "Images autorisées : splits train/val uniquement (jamais le test verrouillé)."
         )
         if st.button("Lancer un défi d’entraînement", type="primary"):
             _start_training_round()
             st.rerun()
     else:
         st.warning(
-            "Sans masque de référence : votre dessin est une proposition à revoir. "
+            "Sans masque de référence : votre sélection est une proposition à revoir. "
             "Différer de l’IA ne signifie pas que vous avez raison."
         )
         uploaded = st.file_uploader(
@@ -580,8 +531,6 @@ def render_anomaly_hunter() -> None:
                     rgb = load_user_image(raw, filename=uploaded.name)
                     from anomaly_hunter.pool import discovery_meta_from_upload
 
-                    # No URL/licence form for players — defaults only.
-                    # Contributions without declared rights stay ineligible for E3 training export.
                     meta = discovery_meta_from_upload(
                         filename=uploaded.name,
                         image_bytes=raw,
@@ -613,15 +562,14 @@ def render_anomaly_hunter() -> None:
             st.dataframe(rows, use_container_width=True, hide_index=True)
         else:
             st.caption("Pas encore de scores enregistrés sur cet appareil.")
-        st.caption("*Annotations OK = essais entraînement avec Dice ≥ 0,55 (métrique de jeu).")
 
     with st.expander("Confidentialité — jeu"):
         st.markdown(
             """
-- Analyse : prédiction automatique en mémoire via le modèle de référence figé.
-- Contributions : conservées **uniquement** si vous cochez le consentement.
-- Images découverte : stockées localement sous `data/annotations/` pour revue admin.
-- Aucune promotion automatique vers l’entraînement. Pas d’envoi vers un cloud tiers par cette app.
+- Aucun chronomètre : vous quittez quand vous voulez.
+- Contributions conservées uniquement avec consentement.
+- Stockage local sous `data/annotations/` pour revue admin.
+- Aucune promotion automatique vers l’entraînement.
 """
         )
 
@@ -726,7 +674,6 @@ def render_admin_review() -> None:
     new_status = st.selectbox("Nouveau statut", list(STATUSES), index=0)
     comment = st.text_area("Commentaire de revue")
     if st.button("Enregistrer la revue", type="primary"):
-        # Re-check auth on mutating action
         if not verify_admin_token(token).ok:
             st.error("Session admin invalide.")
         else:

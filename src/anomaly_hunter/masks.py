@@ -11,6 +11,62 @@ from PIL import Image, ImageDraw
 
 MAX_IMAGE_PIXELS = 12_000_000  # ~4k×3k safety bound
 MAX_UPLOAD_BYTES = 8 * 1024 * 1024
+DEFAULT_TILE_GRID = 3
+
+
+def tile_bounds(image_hw: tuple[int, int], grid: int, row: int, col: int) -> tuple[int, int, int, int]:
+    """Return (y0, y1, x0, x1) for one grid cell."""
+    h, w = image_hw
+    if grid < 2:
+        raise ValueError("grid must be >= 2")
+    y0 = row * h // grid
+    y1 = (row + 1) * h // grid
+    x0 = col * w // grid
+    x1 = (col + 1) * w // grid
+    return y0, y1, x0, x1
+
+
+def mask_from_selected_tiles(
+    image_hw: tuple[int, int],
+    selected: set[tuple[int, int]] | list[tuple[int, int]],
+    *,
+    grid: int = DEFAULT_TILE_GRID,
+) -> np.ndarray:
+    """Build a binary mask by filling selected grid rectangles (reCAPTCHA-style)."""
+    h, w = image_hw
+    mask = np.zeros((h, w), dtype=np.uint8)
+    for row, col in selected:
+        if not (0 <= row < grid and 0 <= col < grid):
+            continue
+        y0, y1, x0, x1 = tile_bounds((h, w), grid, int(row), int(col))
+        mask[y0:y1, x0:x1] = 1
+    return mask
+
+
+def overlay_tile_grid_rgb(
+    image_rgb: np.ndarray,
+    selected: set[tuple[int, int]] | list[tuple[int, int]],
+    *,
+    grid: int = DEFAULT_TILE_GRID,
+) -> np.ndarray:
+    """Preview image with grid lines and highlighted selected tiles."""
+    img = np.asarray(image_rgb, dtype=np.uint8).copy()
+    h, w = img.shape[:2]
+    selected_set = {(int(r), int(c)) for r, c in selected}
+    # Highlight selected cells
+    for row, col in selected_set:
+        y0, y1, x0, x1 = tile_bounds((h, w), grid, row, col)
+        tint = img[y0:y1, x0:x1].astype(np.float32)
+        color = np.array([232, 93, 42], dtype=np.float32)
+        tint = 0.55 * tint + 0.45 * color
+        img[y0:y1, x0:x1] = np.clip(tint, 0, 255).astype(np.uint8)
+    # Grid lines
+    for i in range(1, grid):
+        y = i * h // grid
+        x = i * w // grid
+        img[max(0, y - 1) : y + 2, :, :] = (255, 255, 255)
+        img[:, max(0, x - 1) : x + 2, :] = (255, 255, 255)
+    return img
 
 
 def remap_semantic_to_binary(mask: np.ndarray) -> np.ndarray:

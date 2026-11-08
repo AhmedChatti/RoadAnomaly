@@ -19,6 +19,7 @@ from anomaly_hunter.gamification import apply_training_score, default_profile  #
 from anomaly_hunter.masks import (  # noqa: E402
     binary_mask_from_canvas_json,
     load_ground_truth_mask,
+    mask_from_selected_tiles,
     remap_semantic_to_binary,
     validate_player_mask,
 )
@@ -87,6 +88,14 @@ class MaskTests(unittest.TestCase):
             canvas_height=60,
         )
         self.assertEqual(mask.shape, (60, 60))
+
+    def test_tile_selection_mask(self):
+        mask = mask_from_selected_tiles((90, 120), {(0, 0), (2, 2)}, grid=3)
+        self.assertEqual(mask.shape, (90, 120))
+        self.assertEqual(mask.dtype, np.uint8)
+        self.assertGreater(int(mask[:30, :40].sum()), 0)
+        self.assertGreater(int(mask[60:, 80:].sum()), 0)
+        self.assertEqual(int(mask[30:60, 40:80].sum()), 0)
 
 
 class PoolTests(unittest.TestCase):

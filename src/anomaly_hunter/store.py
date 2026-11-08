@@ -69,6 +69,10 @@ class Contribution:
     reviewed_at_utc: str | None = None
     game_score: dict[str, Any] = field(default_factory=dict)
     notes: str = ""
+    near_duplicate_fp: str | None = None
+    # Review workflow status is verification_status.
+    # eligible_for_e3_training is computed at export time — never implied by approval alone.
+    annotation_lifecycle: str = "submitted"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -94,7 +98,11 @@ class AnnotationStore:
     def _contrib_dir(self, contribution_id: str) -> Path:
         if not re.fullmatch(r"[0-9a-f]{32}", contribution_id):
             raise ValueError("contribution_id invalide")
-        return self.contributions_dir / contribution_id
+        path = (self.contributions_dir / contribution_id).resolve()
+        root = self.contributions_dir.resolve()
+        if path.parent != root:
+            raise ValueError("Accès fichier refusé (chemin invalide).")
+        return path
 
     def find_duplicate_sha(self, image_sha256: str) -> str | None:
         if not image_sha256:
@@ -128,7 +136,13 @@ class AnnotationStore:
             raise ValueError("Image trop volumineuse (max 8 Mo).")
 
         h, w = int(player_mask.shape[0]), int(player_mask.shape[1])
-        mask = validate_player_mask(player_mask, expected_hw=(h, w))
+        mask = validate_player_mask(
+            player_mask, expected_hw=(h, w), require_any_positive=True
+        )
+        # Strict binary check
+        uniq = set(int(v) for v in np.unique(mask))
+        if not uniq.issubset({0, 1}):
+            raise ValueError("Masque non binaire.")
 
         image_sha = content_fingerprint(image_bytes) if image_bytes else None
         if image_rgb is not None and image_sha is None:
@@ -136,6 +150,12 @@ class AnnotationStore:
             image_sha = content_fingerprint(
                 np.ascontiguousarray(image_rgb).tobytes() + f"{h}x{w}".encode()
             )
+
+        near_fp = None
+        if image_rgb is not None:
+            from anomaly_hunter.eligibility import near_duplicate_fingerprint
+
+            near_fp = near_duplicate_fingerprint(image_rgb)
 
         # Duplicate fingerprinting applies to discovery uploads; training frames may be replayed.
         dup = None
@@ -189,8 +209,11 @@ class AnnotationStore:
             game_score=game_score or {},
             notes=(
                 "Candidate annotation only — not ground truth. "
-                "Not auto-promoted into training."
+                "Not auto-promoted into training. "
+                "approved ≠ eligible_for_e3_training."
             ),
+            near_duplicate_fp=near_fp,
+            annotation_lifecycle="submitted",
         )
         (cdir / "meta.json").write_text(
             json.dumps(meta.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8"
@@ -255,6 +278,15 @@ class AnnotationStore:
         meta["review_comment"] = comment
         meta["reviewer_id"] = reviewer_id
         meta["reviewed_at_utc"] = _utc_now()
+        # Lifecycle: reviewed vs approved — still not E3-eligible by itself
+        if status == ContributionStatus.APPROVED.value:
+            meta["annotation_lifecycle"] = "approved"
+        elif status == ContributionStatus.REJECTED.value:
+            meta["annotation_lifecycle"] = "rejected"
+        elif status == ContributionStatus.REQUIRES_ADDITIONAL_REVIEW.value:
+            meta["annotation_lifecycle"] = "requires_additional_review"
+        else:
+            meta["annotation_lifecycle"] = "reviewed"
         meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
         self._rewrite_index_row(meta)
         return meta

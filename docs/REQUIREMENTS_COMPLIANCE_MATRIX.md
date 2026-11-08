@@ -81,3 +81,16 @@ Status vocabulary:
 ## Notes on outdated statements in `docs/03_…`
 
 Section 1 of `docs/03_assessment_requirements_and_compliance.md` still says models/checkpoints are absent. That is **historically stale**: E0/E1 and Phase 4 code now exist. Prefer **this matrix** for current status; do not silently rewrite frozen Phase 1 protocol text.
+
+---
+
+## E. Application / HITL (2026-11-08 acceptance audit)
+
+| ID | Requirement | Evidence | Status | Limitation |
+| --- | --- | --- | --- | --- |
+| R-APP-01 | Official E2b@0.55 analyser | `app.py`, `app_inference.py`, tests | VERIFIED | Academic prototype |
+| R-APP-02 | Anomaly Hunter train/val only | `pool.py`, acceptance tests | VERIFIED | Soft UI timer refresh PARTIAL |
+| R-APP-03 | Discovery candidates + consent | store + UI | VERIFIED | Manual erasure only |
+| R-APP-04 | Admin fail-closed auth | `admin_auth.py` | VERIFIED | Localhost demo assumed |
+| R-APP-05 | E3 eligibility ≠ approval; no test/val train export | `eligibility.py`, `export.py` | VERIFIED | E3 training not implemented (intentional) |
+| R-APP-06 | Freeze integrity pins | `test_acceptance_audit.py` | VERIFIED | — |

@@ -10,6 +10,8 @@ Repérer des obstacles sur une photo de route en dessinant autour d’eux, compa
 
 ```powershell
 pip install -r requirements-app.txt
+# Requis pour la page Revue (secret ≥16 caractères, non prévisible) :
+$env:ROADANOMALY_ADMIN_TOKEN = "<votre-secret>"
 streamlit run app.py
 ```
 
@@ -18,27 +20,32 @@ Ouvrir l’onglet **Jouer**.
 ## Défi entraînement
 
 - Images issues uniquement des splits **train** et **val** (jamais le test verrouillé).
-- Chronomètre de 15 secondes, outils pinceau / rectangle / gomme.
-- Après validation : comparaison avec la référence vérifiée et la prédiction officielle du modèle de référence.
+- Chronomètre de 15 secondes : après expiration, la validation est **refusée** (aucun point).
+- Outils pinceau / rectangle / gomme (ou polygone texte si le module canvas est absent).
+- Après validation : comparaison avec la référence vérifiée et la prédiction officielle.
 - Scores Dice / IoU et points **de jeu** (distincts des résultats scientifiques Stage 5).
+- Chaque défi ne rapporte des points **qu’une seule fois** par session.
 
 ## Défi découverte
 
-- Vous importez une nouvelle image (JPG/JPEG/PNG, ≤ 8 Mo) avec licence et source déclarées.
-- Consentement obligatoire pour enregistrer l’annotation.
+- Image JPG/JPEG/PNG ≤ 8 Mo, licence et source obligatoires, consentement obligatoire.
 - Pas de Dice/IoU validé (pas de vérité terrain).
 - Différer de l’IA **ne prouve pas** que vous avez raison.
+- Statut initial : `pending_review` (ou `duplicate` si empreinte déjà vue).
 
 ## Scores et succès
 
-Points, niveaux, record personnel, succès et classement local sont **ludiques**. Ils ne remplacent pas l’évaluation scientifique figée.
+Points, niveaux, record, succès et classement sont **ludiques** et **locaux à l’appareil**.  
+Ce n’est **pas** un classement communautaire mondial. Aucun compte multi-utilisateur n’est implémenté.
 
 ## Confidentialité
 
 - Sans consentement : pas de conservation permanente de l’image.
-- Avec consentement : stockage local sous `data/annotations/` pour revue administrateur.
-- Aucune promotion automatique vers l’entraînement. Le modèle E2b n’est jamais modifié par le jeu.
+- Avec consentement : stockage local sous `data/annotations/` pour revue admin.
+- Pas de suppression automatique garantie — effacement manuel des fichiers si besoin.
+- Aucune promotion automatique vers l’entraînement. E2b n’est jamais modifié.
 
 ## Revue administrateur
 
-Onglet **Revue** — jeton `ROADANOMALY_ADMIN_TOKEN` (défaut local documenté dans l’UI). Voir aussi `docs/HUMAN_ANNOTATION_PIPELINE.md`.
+Onglet **Revue** — jeton via `ROADANOMALY_ADMIN_TOKEN` uniquement (aucun défaut).  
+Voir `docs/SECURITY_AND_PRIVACY_AUDIT.md` et `docs/HUMAN_ANNOTATION_PIPELINE.md`.

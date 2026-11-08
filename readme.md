@@ -55,6 +55,8 @@ Navigation :
 
 ```powershell
 pip install -r requirements-app.txt
+# Requis pour Revue (secret ≥16 caractères ; aucun défaut autorisé) :
+$env:ROADANOMALY_ADMIN_TOKEN = "<strong-secret>"
 streamlit run app.py
 ```
 
@@ -62,7 +64,9 @@ Guides :
 
 - Utilisateur app : `docs/APP_USER_GUIDE.md`
 - Anomaly Hunter : `docs/ANOMALY_HUNTER_GUIDE.md`
-- Annotations humaines : `docs/HUMAN_ANNOTATION_PIPELINE.md`
+- Annotations / anti-fuite : `docs/HUMAN_ANNOTATION_PIPELINE.md`, `docs/DATA_LEAKAGE_PREVENTION.md`
+- Sécurité / confidentialité : `docs/SECURITY_AND_PRIVACY_AUDIT.md`
+- Audit d’acceptance : `docs/FINAL_ACCEPTANCE_AUDIT.md`
 - Roadmap E3 (futur, pas d’entraînement auto) : `docs/FUTURE_E3_ROADMAP.md`
 
 ### Fichier modèle (requis, hors Git)

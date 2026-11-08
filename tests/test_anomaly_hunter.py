@@ -180,9 +180,11 @@ class StoreExportTests(unittest.TestCase):
             self.assertEqual(c2.verification_status, ContributionStatus.DUPLICATE.value)
 
             store.review(c1.contribution_id, status="approved", comment="ok")
+            # Discovery without weak gates: source/license already set → eligible
             manifest = export_approved_dataset(store, export_root=Path(tmp) / "exports")
-            self.assertEqual(manifest["n_approved_exported"], 1)
+            self.assertEqual(manifest["n_eligible_exported"], 1)
             self.assertIn("locked_test_split", manifest["forbidden"])
+            self.assertIn("overwrite_existing_version", manifest["forbidden"])
 
     def test_oversized_upload_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:

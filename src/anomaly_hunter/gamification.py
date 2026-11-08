@@ -27,6 +27,7 @@ class PlayerProfile:
     level: int = 1
     achievements: list[str] = field(default_factory=list)
     played_challenge_ids: list[str] = field(default_factory=list)
+    scored_challenge_ids: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -34,7 +35,11 @@ class PlayerProfile:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "PlayerProfile":
         known = {f.name for f in cls.__dataclass_fields__.values()}  # type: ignore[attr-defined]
-        return cls(**{k: v for k, v in data.items() if k in known})
+        filtered = {k: v for k, v in data.items() if k in known}
+        filtered.setdefault("scored_challenge_ids", [])
+        filtered.setdefault("achievements", [])
+        filtered.setdefault("played_challenge_ids", [])
+        return cls(**filtered)
 
 
 def default_profile(session_id: str) -> PlayerProfile:
@@ -59,9 +64,18 @@ def apply_training_score(
     player_dice: float,
     beat_ai: bool,
 ) -> PlayerProfile:
-    profile.points += max(0, int(points_earned))
-    profile.personal_best = max(profile.personal_best, int(points_earned))
+    # Anti-replay: each challenge_id awards points at most once per session profile.
+    if challenge_id in profile.scored_challenge_ids:
+        profile.challenges_played += 1
+        if challenge_id not in profile.played_challenge_ids:
+            profile.played_challenge_ids.append(challenge_id)
+        return profile
+
+    awarded = max(0, int(points_earned))
+    profile.points += awarded
+    profile.personal_best = max(profile.personal_best, awarded)
     profile.challenges_played += 1
+    profile.scored_challenge_ids.append(challenge_id)
     if challenge_id not in profile.played_challenge_ids:
         profile.played_challenge_ids.append(challenge_id)
     if player_dice >= 0.55:
@@ -85,9 +99,16 @@ def apply_training_score(
     return profile
 
 
-def apply_discovery_submission(profile: PlayerProfile) -> PlayerProfile:
+def apply_discovery_submission(
+    profile: PlayerProfile, *, challenge_id: str | None = None
+) -> PlayerProfile:
     profile.challenges_played += 1
+    # Participation points once per discovery challenge id
+    if challenge_id and challenge_id in profile.scored_challenge_ids:
+        return profile
     profile.points += 5  # participation only — not a correctness claim
+    if challenge_id:
+        profile.scored_challenge_ids.append(challenge_id)
     profile.level = level_for_points(profile.points)
     if "discovery_contributor" not in profile.achievements:
         profile.achievements.append("discovery_contributor")

@@ -258,3 +258,15 @@ HEAD after docs push: `8c780d7…`.
 **Storage:** consented contributions under `data/annotations/` (gitignored); admin export to versioned `exports/v…`.
 
 **Tests:** full suite green after feature add (incl. anomaly hunter + app inference).
+
+---
+
+## 2026-11-08 — Final end-to-end acceptance audit
+
+**Pre-audit freeze:** E2b checkpoint SHA `280170dc…` match; Stage 5 CSV / freeze JSON / DONE marker hashes pinned in `tests/test_acceptance_audit.py`.
+
+**Fixes:** fail-closed admin auth (ban `roadanomaly-local-admin`); E3 eligibility ≠ approval; exclude val+test from E3 train export; no export overwrite; hard reject expired/empty/replay scores; near-dup fingerprint; path-safe contribution IDs.
+
+**Docs:** `FINAL_ACCEPTANCE_AUDIT.md`, `SECURITY_AND_PRIVACY_AUDIT.md`, `DATA_LEAKAGE_PREVENTION.md` + guide updates.
+
+**Classification:** overall **PARTIAL** (timer UI refresh best-effort; leaderboard local-only; no E3 train — intentional BLOCKED).

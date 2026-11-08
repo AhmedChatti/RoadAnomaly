@@ -132,6 +132,8 @@ def _start_training_round() -> None:
     st.session_state["game_image"] = rgb
     st.session_state["game_deadline"] = time.time() + COUNTDOWN_SECONDS
     st.session_state["game_result"] = None
+    st.session_state["game_submitted"] = False
+    st.session_state["game_expired"] = False
     st.session_state["canvas_key"] = st.session_state.get("canvas_key", 0) + 1
 
 
@@ -151,6 +153,8 @@ def _start_discovery_round(image_rgb: np.ndarray, filename: str, meta: dict[str,
     st.session_state["game_image_bytes"] = meta.get("image_bytes")
     st.session_state["game_deadline"] = time.time() + COUNTDOWN_SECONDS
     st.session_state["game_result"] = None
+    st.session_state["game_submitted"] = False
+    st.session_state["game_expired"] = False
     st.session_state["canvas_key"] = st.session_state.get("canvas_key", 0) + 1
 
 
@@ -165,10 +169,26 @@ def _render_drawing_tools(image_rgb: np.ndarray) -> np.ndarray | None:
         canvas_w = int(round(w * scale))
         canvas_h = int(round(h * scale))
 
-    remaining = max(0, int(st.session_state.get("game_deadline", time.time()) - time.time()))
-    st.progress(min(1.0, remaining / COUNTDOWN_SECONDS), text=f"Temps restant : {remaining} s")
-    if remaining == 0:
-        st.warning("Temps écoulé — validez votre annotation ou recommencez.")
+    deadline = float(st.session_state.get("game_deadline", time.time()))
+    remaining = max(0.0, deadline - time.time())
+    remaining_i = int(remaining)
+    st.progress(
+        min(1.0, remaining / COUNTDOWN_SECONDS) if COUNTDOWN_SECONDS else 0.0,
+        text=f"Temps restant : {remaining_i} s",
+    )
+    if remaining <= 0:
+        st.session_state["game_expired"] = True
+        st.error("Temps écoulé. La validation est refusée — lancez une nouvelle manche.")
+    else:
+        st.session_state["game_expired"] = False
+    # Force a periodic refresh while drawing so the countdown updates.
+    if remaining > 0 and st.session_state.get("game_phase") == "draw":
+        try:
+            from streamlit_autorefresh import st_autorefresh  # type: ignore
+
+            st_autorefresh(interval=1000, key="hunter_timer_refresh")
+        except Exception:
+            st.caption("Astuce : interagissez avec la page pour actualiser le compte à rebours.")
 
     tool = st.radio(
         "Outil",
@@ -237,7 +257,19 @@ def _render_drawing_tools(image_rgb: np.ndarray) -> np.ndarray | None:
     return mask
 
 
+def _assert_submission_allowed() -> None:
+    if st.session_state.get("game_phase") != "draw":
+        raise ValueError("Aucune manche active.")
+    if st.session_state.get("game_submitted"):
+        raise ValueError("Cette manche a déjà été soumise.")
+    deadline = float(st.session_state.get("game_deadline", 0))
+    if time.time() > deadline + 0.25:  # small clock skew tolerance
+        st.session_state["game_expired"] = True
+        raise ValueError("Temps écoulé — soumission refusée. Aucun point attribué.")
+
+
 def _submit_training(player_mask: np.ndarray) -> None:
+    _assert_submission_allowed()
     ch = st.session_state["game_challenge"]
     image_rgb = st.session_state["game_image"]
     h, w = image_rgb.shape[:2]
@@ -288,6 +320,7 @@ def _submit_training(player_mask: np.ndarray) -> None:
         retain_image=bool(consent),
     )
 
+    st.session_state["game_submitted"] = True
     st.session_state["game_phase"] = "reveal"
     st.session_state["game_result"] = {
         "player_mask": player_mask,
@@ -301,6 +334,7 @@ def _submit_training(player_mask: np.ndarray) -> None:
 
 
 def _submit_discovery(player_mask: np.ndarray) -> None:
+    _assert_submission_allowed()
     ch = st.session_state["game_challenge"]
     image_rgb = st.session_state["game_image"]
     h, w = image_rgb.shape[:2]
@@ -317,7 +351,9 @@ def _submit_discovery(player_mask: np.ndarray) -> None:
         inf = predict_e2b(model, image_rgb)
         assert abs(float(inf.threshold) - E2B_THRESHOLD) < 1e-12
 
-    profile = apply_discovery_submission(_profile())
+    profile = apply_discovery_submission(
+        _profile(), challenge_id=ch.get("challenge_id")
+    )
     _save_profile(profile)
 
     image_bytes = st.session_state.get("game_image_bytes")
@@ -338,6 +374,7 @@ def _submit_discovery(player_mask: np.ndarray) -> None:
         retain_image=True,
     )
 
+    st.session_state["game_submitted"] = True
     st.session_state["game_phase"] = "reveal"
     st.session_state["game_result"] = {
         "player_mask": player_mask,
@@ -444,8 +481,16 @@ def render_anomaly_hunter() -> None:
         st.caption("Dessinez autour de l’obstacle. Vous pouvez gommer et corriger avant de valider.")
         mask = _render_drawing_tools(st.session_state["game_image"])
         col_a, col_b = st.columns(2)
+        expired = bool(st.session_state.get("game_expired")) or (
+            time.time() > float(st.session_state.get("game_deadline", 0))
+        )
         with col_a:
-            submit = st.button("Valider mon annotation", type="primary", use_container_width=True)
+            submit = st.button(
+                "Valider mon annotation",
+                type="primary",
+                use_container_width=True,
+                disabled=expired or bool(st.session_state.get("game_submitted")),
+            )
         with col_b:
             if st.button("Abandonner", use_container_width=True):
                 for k in list(st.session_state.keys()):
@@ -454,8 +499,10 @@ def render_anomaly_hunter() -> None:
                 st.rerun()
         if submit:
             try:
-                if mask is None:
-                    st.error("Dessinez d’abord une zone.")
+                if expired:
+                    raise ValueError("Temps écoulé — soumission refusée.")
+                if mask is None or int((mask > 0).sum()) == 0:
+                    st.error("Annotation vide refusée. Dessinez une zone avant de valider.")
                 elif st.session_state.get("game_mode") == "training":
                     _submit_training(mask)
                     st.rerun()
@@ -519,7 +566,11 @@ def render_anomaly_hunter() -> None:
                 except Exception as exc:
                     st.error(str(exc))
 
-    with st.expander("Classement local (optionnel)"):
+    with st.expander("Classement local (cet appareil uniquement)"):
+        st.warning(
+            "Classement **local au navigateur/appareil** — pas un classement communautaire mondial. "
+            "Aucun compte multi-utilisateur n’est implémenté."
+        )
         board = AnnotationStore().leaderboard_path
         import json
 
@@ -542,16 +593,31 @@ def render_anomaly_hunter() -> None:
 
 
 def render_admin_review() -> None:
-    st.markdown("## Revue des annotations")
-    st.caption("Interface administrateur — validation humaine avant tout export dataset.")
-    token_expected = st.secrets.get("admin_token", "") if hasattr(st, "secrets") else ""
-    import os
+    from anomaly_hunter.admin_auth import ENV_VAR, admin_auth_status, verify_admin_token
+    from anomaly_hunter.eligibility import (
+        assess_contribution_eligibility,
+        detect_annotation_conflicts,
+    )
 
-    token_expected = os.environ.get("ROADANOMALY_ADMIN_TOKEN", token_expected) or "roadanomaly-local-admin"
+    st.markdown("## Revue des annotations")
+    st.caption(
+        "Interface administrateur — validation humaine avant tout export. "
+        "Approuvé ≠ éligible E3."
+    )
+
+    cfg = admin_auth_status()
+    if not cfg.ok:
+        st.error(cfg.reason)
+        st.info(
+            f"Configurez un secret fort dans la variable d’environnement `{ENV_VAR}` "
+            "(≥16 caractères). Aucun jeton par défaut n’est accepté."
+        )
+        return
+
     token = st.text_input("Jeton administrateur", type="password")
-    if token != token_expected:
-        st.info("Saisissez le jeton admin pour continuer.")
-        st.caption("Par défaut local : `roadanomaly-local-admin` (ou variable ROADANOMALY_ADMIN_TOKEN).")
+    auth = verify_admin_token(token)
+    if not auth.ok:
+        st.warning("Accès refusé tant que le jeton correct n’est pas fourni.")
         return
 
     store = AnnotationStore()
@@ -562,14 +628,38 @@ def render_admin_review() -> None:
         else store.list_contributions(status=status_filter)
     )
     st.write(f"{len(rows)} contribution(s)")
+
+    conflicts = detect_annotation_conflicts(
+        store.list_contributions(),
+        store_load_mask=store.load_contribution_assets,
+    )
+    if conflicts:
+        st.warning(f"{len(conflicts)} conflit(s) d’annotation détecté(s) (IoU bas / formes).")
+        st.json(conflicts[:20])
+
     if not rows:
+        st.markdown("### Export dataset versionné (éligibles E3 uniquement)")
+        if st.button("Exporter les annotations éligibles"):
+            try:
+                manifest = export_approved_dataset(
+                    store, admin_token=token, enforce_admin=True
+                )
+                st.success(
+                    f"Export {manifest['dataset_version']} — "
+                    f"{manifest['n_eligible_exported']} éligible(s), "
+                    f"{manifest['n_excluded']} exclu(s)."
+                )
+                st.json(manifest)
+            except PermissionError as exc:
+                st.error(str(exc))
         return
 
     ids = [r["contribution_id"] for r in rows]
     selected = st.selectbox("Contribution", ids)
     assets = store.load_contribution_assets(selected)
     meta = assets["meta"]
-    st.json(meta)
+    decision = assess_contribution_eligibility(meta)
+    st.json({"meta": meta, "e3_eligibility": decision.to_dict()})
 
     cols = st.columns(3)
     with cols[0]:
@@ -579,10 +669,18 @@ def render_admin_review() -> None:
             st.caption("Image non conservée (pas de consentement ou défi train sans rétention).")
     with cols[1]:
         if "player_mask" in assets:
-            st.image(colorize_mask((assets["player_mask"] > 0).astype(np.uint8)), caption="Masque joueur", use_container_width=True)
+            st.image(
+                colorize_mask((assets["player_mask"] > 0).astype(np.uint8)),
+                caption="Masque joueur",
+                use_container_width=True,
+            )
     with cols[2]:
         if "ai_mask" in assets:
-            st.image(colorize_mask((assets["ai_mask"] > 0).astype(np.uint8)), caption="Masque IA", use_container_width=True)
+            st.image(
+                colorize_mask((assets["ai_mask"] > 0).astype(np.uint8)),
+                caption="Masque IA",
+                use_container_width=True,
+            )
 
     if "player_mask" in assets and "ai_mask" in assets:
         st.image(
@@ -594,13 +692,28 @@ def render_admin_review() -> None:
     new_status = st.selectbox("Nouveau statut", list(STATUSES), index=0)
     comment = st.text_area("Commentaire de revue")
     if st.button("Enregistrer la revue", type="primary"):
-        updated = store.review(selected, status=new_status, comment=comment)
-        st.success(f"Statut → {updated['verification_status']}")
+        # Re-check auth on mutating action
+        if not verify_admin_token(token).ok:
+            st.error("Session admin invalide.")
+        else:
+            updated = store.review(selected, status=new_status, comment=comment)
+            st.success(f"Statut → {updated['verification_status']}")
 
-    st.markdown("### Export dataset versionné (préparation E3)")
-    if st.button("Exporter les annotations approuvées"):
-        manifest = export_approved_dataset(store)
-        st.success(
-            f"Export {manifest['dataset_version']} — {manifest['n_approved_exported']} item(s)."
-        )
-        st.json(manifest)
+    st.markdown("### Export dataset versionné (éligibles E3 uniquement)")
+    st.caption(
+        "Exclut test/val figés, doublons, consentement manquant, licence/source faibles. "
+        "N’écrase jamais une version existante."
+    )
+    if st.button("Exporter les annotations éligibles"):
+        try:
+            manifest = export_approved_dataset(
+                store, admin_token=token, enforce_admin=True
+            )
+            st.success(
+                f"Export {manifest['dataset_version']} — "
+                f"{manifest['n_eligible_exported']} éligible(s), "
+                f"{manifest['n_excluded']} exclu(s)."
+            )
+            st.json(manifest)
+        except PermissionError as exc:
+            st.error(str(exc))

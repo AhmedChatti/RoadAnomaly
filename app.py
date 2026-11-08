@@ -365,8 +365,10 @@ def load_example_train_image() -> tuple[np.ndarray, str] | None:
 
 def friendly_error(exc: Exception) -> str:
     msg = str(exc).lower()
-    if "format" in msg or "supporté" in msg or "gif" in msg:
-        return "Ce format n’est pas pris en charge. Utilisez une image JPG, JPEG ou PNG."
+    if "volumineuse" in msg or "8 mo" in msg:
+        return "Le fichier est trop volumineux. Utilisez une image de 8 Mo maximum."
+    if "format" in msg or "supporté" in msg or "gif" in msg or "cannot identify" in msg:
+        return "Ce format n’est pas pris en charge ou le fichier est illisible. Utilisez JPG, JPEG, PNG ou WebP."
     if "trop petite" in msg:
         return "L’image est trop petite. Choisissez une photo plus grande."
     if "checkpoint" in msg or "no such file" in msg or "introuvable" in msg:
@@ -438,8 +440,8 @@ def main() -> None:
         """
 <div class="card">
   <h3>Analysez une image de route</h3>
-  <p class="muted">Importez une photo (JPG, JPEG ou PNG), lancez l’analyse, puis consultez
-  les zones signalées. Simple, rapide, sans jargon technique.</p>
+  <p class="muted">Importez une photo de route, lancez l’analyse, puis consultez
+  les zones signalées. Formats : JPG, JPEG, PNG, WebP (max 8&nbsp;Mo).</p>
 </div>
 """,
         unsafe_allow_html=True,
@@ -454,7 +456,7 @@ def main() -> None:
     with up_col:
         uploaded = st.file_uploader(
             "Glissez-déposez une image ici, ou cliquez pour la sélectionner",
-            type=["jpg", "jpeg", "png"],
+            type=["jpg", "jpeg", "png", "webp"],
             accept_multiple_files=False,
             label_visibility="visible",
             key=f"uploader_{st.session_state['upload_nonce']}",
@@ -465,7 +467,7 @@ def main() -> None:
 <div class="card">
   <div class="panel-title">Conseil</div>
   <p class="muted" style="margin:0">Photo claire, route bien visible.
-  Formats : JPG, JPEG, PNG.</p>
+  Formats : JPG, JPEG, PNG, WebP · max 8&nbsp;Mo.</p>
 </div>
 """,
             unsafe_allow_html=True,
@@ -489,8 +491,13 @@ def main() -> None:
         image_name = st.session_state.get("pending_name", "exemple.png")
     elif uploaded is not None:
         try:
-            image = load_user_image(uploaded.getvalue(), filename=uploaded.name)
-            image_name = uploaded.name
+            from anomaly_hunter.masks import MAX_UPLOAD_BYTES
+
+            raw = uploaded.getvalue()
+            if len(raw) > MAX_UPLOAD_BYTES:
+                raise ValueError("Image trop volumineuse (maximum 8 Mo).")
+            image = load_user_image(raw, filename=uploaded.name)
+            image_name = Path(uploaded.name).name  # strip any path components
             st.session_state.pop("pending_image", None)
         except Exception as exc:
             st.error(friendly_error(exc))

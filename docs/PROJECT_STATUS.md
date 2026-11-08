@@ -1,13 +1,13 @@
 # RoadAnomaly — Project Status
 
-**Last verified:** 2026-11-08 (Final acceptance audit — security, eligibility, freeze)  
+**Last verified:** 2026-11-08 (Full Streamlit QA — button nav, tile game, admin confirms)  
 **Branch:** `main`  
 **E2 training commit:** `9e734a1d0af48342f92c084216b1dd1d4c254741`  
 **Split lock:** `9a01c05cfc7d33783c4f64b91b0ae423a4d3ad57439fd71ffc029a8f04585c78`
 
 ## One-line status
 
-**E2b** primary (val Dice ≈ 0.778 @ 0.55; test mean Dice ≈ 0.818). App + Anomaly Hunter accepted with PARTIAL UX limits; admin fail-closed; E3 export eligibility excludes test/val; freeze SHA intact.
+**E2b** primary (val Dice ≈ 0.778 @ 0.55; test mean Dice ≈ 0.818). Streamlit app: Analyser + tile-based Anomaly Hunter + fail-closed Revue; freeze SHA intact; full QA docs under `docs/STREAMLIT_*`.
 
 ## Stage board
 

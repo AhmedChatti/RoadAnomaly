@@ -270,3 +270,13 @@ HEAD after docs push: `8c780d7…`.
 **Docs:** `FINAL_ACCEPTANCE_AUDIT.md`, `SECURITY_AND_PRIVACY_AUDIT.md`, `DATA_LEAKAGE_PREVENTION.md` + guide updates.
 
 **Classification:** overall **PARTIAL** (timer UI refresh best-effort; leaderboard local-only; no E3 train — intentional BLOCKED).
+
+---
+
+## 2026-11-08 — Full Streamlit QA / UX / security pass
+
+**Actual product state (vs outdated prompt assumptions):** Jouer uses **3×3 tile selection**, **no timer**, **no brush**; nav uses **buttons** (Streamlit 1.67 radio/segmented serde broken).
+
+**Fixes:** WebP + 8 Mo on Analyser; admin confirmations; button filters; high-contrast theme; AppTest opt-in; QA docs `STREAMLIT_FULL_QA_AUDIT.md`, `STREAMLIT_UI_UX_IMPROVEMENTS.md`, `STREAMLIT_SECURITY_AND_PRIVACY_AUDIT.md`, `STREAMLIT_TEST_REPORT.md`.
+
+**Freeze re-check:** thr 0.55, 512×288, checkpoint SHA match True.

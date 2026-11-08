@@ -615,7 +615,20 @@ def render_admin_review() -> None:
         return
 
     store = AnnotationStore()
-    status_filter = st.selectbox("Filtrer par statut", ["pending_review", "all", *STATUSES])
+    filter_opts = ["pending_review", "all", *STATUSES]
+    # Deduplicate while preserving order
+    seen = set()
+    filter_opts = [x for x in filter_opts if not (x in seen or seen.add(x))]
+    if st.session_state.get("admin_status_filter") not in filter_opts:
+        st.session_state["admin_status_filter"] = "pending_review"
+    fcols = st.columns(len(filter_opts))
+    for i, opt in enumerate(filter_opts):
+        with fcols[i]:
+            on = st.session_state["admin_status_filter"] == opt
+            if st.button(opt, key=f"admin_filt_{i}", use_container_width=True, type="primary" if on else "secondary"):
+                st.session_state["admin_status_filter"] = opt
+                st.rerun()
+    status_filter = st.session_state["admin_status_filter"]
     rows = (
         store.list_contributions()
         if status_filter == "all"
@@ -632,24 +645,23 @@ def render_admin_review() -> None:
         st.json(conflicts[:20])
 
     if not rows:
-        st.markdown("### Export dataset versionné (éligibles E3 uniquement)")
-        if st.button("Exporter les annotations éligibles"):
-            try:
-                manifest = export_approved_dataset(
-                    store, admin_token=token, enforce_admin=True
-                )
-                st.success(
-                    f"Export {manifest['dataset_version']} — "
-                    f"{manifest['n_eligible_exported']} éligible(s), "
-                    f"{manifest['n_excluded']} exclu(s)."
-                )
-                st.json(manifest)
-            except PermissionError as exc:
-                st.error(str(exc))
+        st.info("Aucune contribution pour ce filtre.")
         return
 
     ids = [r["contribution_id"] for r in rows]
-    selected = st.selectbox("Contribution", ids)
+    if st.session_state.get("admin_selected_contrib") not in ids:
+        st.session_state["admin_selected_contrib"] = ids[0]
+    st.caption("Contribution")
+    # Button list avoids selectbox serde issues on long sessions
+    pick_cols = st.columns(min(3, len(ids)))
+    for i, cid in enumerate(ids[:12]):
+        with pick_cols[i % len(pick_cols)]:
+            on = st.session_state["admin_selected_contrib"] == cid
+            label = cid[:8] + "…"
+            if st.button(label, key=f"pick_c_{cid}", use_container_width=True, type="primary" if on else "secondary"):
+                st.session_state["admin_selected_contrib"] = cid
+                st.rerun()
+    selected = st.session_state["admin_selected_contrib"]
     assets = store.load_contribution_assets(selected)
     meta = assets["meta"]
     decision = assess_contribution_eligibility(meta)
@@ -683,30 +695,67 @@ def render_admin_review() -> None:
             use_container_width=True,
         )
 
-    new_status = st.selectbox("Nouveau statut", list(STATUSES), index=0)
+    st.markdown("### Décision de revue")
+    status_labels = {
+        "pending_review": "En attente",
+        "approved": "Approuver",
+        "rejected": "Rejeter",
+        "duplicate": "Marquer doublon",
+        "requires_additional_review": "Demander un avis supplémentaire",
+    }
+    if st.session_state.get("review_status_choice") not in STATUSES:
+        st.session_state["review_status_choice"] = "approved"
+    scols = st.columns(len(STATUSES))
+    for i, status in enumerate(STATUSES):
+        with scols[i]:
+            on = st.session_state["review_status_choice"] == status
+            if st.button(
+                status_labels.get(status, status),
+                key=f"rev_status_{i}",
+                use_container_width=True,
+                type="primary" if on else "secondary",
+            ):
+                st.session_state["review_status_choice"] = status
+                st.rerun()
+    new_status = st.session_state["review_status_choice"]
     comment = st.text_area("Commentaire de revue")
+    confirm_review = st.checkbox(
+        "Je confirme cette décision de revue (action persistante).",
+        key="confirm_review_action",
+    )
     if st.button("Enregistrer la revue", type="primary"):
         if not verify_admin_token(token).ok:
             st.error("Session admin invalide.")
+        elif not confirm_review:
+            st.warning("Cochez la confirmation avant d’enregistrer.")
         else:
             updated = store.review(selected, status=new_status, comment=comment)
+            st.session_state["confirm_review_action"] = False
             st.success(f"Statut → {updated['verification_status']}")
 
     st.markdown("### Export dataset versionné (éligibles E3 uniquement)")
     st.caption(
         "Exclut test/val figés, doublons, consentement manquant, licence/source faibles. "
-        "N’écrase jamais une version existante."
+        "N’écrase jamais une version existante. Approuvé ≠ automatiquement éligible."
+    )
+    confirm_export = st.checkbox(
+        "Je confirme l’export des annotations éligibles.",
+        key="confirm_export_action",
     )
     if st.button("Exporter les annotations éligibles"):
-        try:
-            manifest = export_approved_dataset(
-                store, admin_token=token, enforce_admin=True
-            )
-            st.success(
-                f"Export {manifest['dataset_version']} — "
-                f"{manifest['n_eligible_exported']} éligible(s), "
-                f"{manifest['n_excluded']} exclu(s)."
-            )
-            st.json(manifest)
-        except PermissionError as exc:
-            st.error(str(exc))
+        if not confirm_export:
+            st.warning("Cochez la confirmation avant d’exporter.")
+        else:
+            try:
+                manifest = export_approved_dataset(
+                    store, admin_token=token, enforce_admin=True
+                )
+                st.session_state["confirm_export_action"] = False
+                st.success(
+                    f"Export {manifest['dataset_version']} — "
+                    f"{manifest['n_eligible_exported']} éligible(s), "
+                    f"{manifest['n_excluded']} exclu(s)."
+                )
+                st.json(manifest)
+            except PermissionError as exc:
+                st.error(str(exc))

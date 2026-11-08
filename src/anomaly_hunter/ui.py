@@ -190,9 +190,12 @@ def _render_drawing_tools(image_rgb: np.ndarray) -> np.ndarray | None:
         except Exception:
             st.caption("Astuce : interagissez avec la page pour actualiser le compte à rebours.")
 
+    tool_options = ["Pinceau", "Rectangle", "Gomme"]
+    if st.session_state.get("hunter_tool") not in tool_options:
+        st.session_state.pop("hunter_tool", None)
     tool = st.radio(
         "Outil",
-        ["Pinceau", "Rectangle", "Gomme"],
+        tool_options,
         horizontal=True,
         key="hunter_tool",
     )
@@ -466,10 +469,14 @@ def render_anomaly_hunter() -> None:
         key="hunter_consent",
     )
 
+    mode_options = ["Entraînement (avec référence)", "Découverte (nouvelle image)"]
+    if st.session_state.get("hunter_mode") not in mode_options:
+        st.session_state.pop("hunter_mode", None)
     mode = st.radio(
         "Type de défi",
-        ["Entraînement (avec référence)", "Découverte (nouvelle image)"],
+        mode_options,
         horizontal=True,
+        key="hunter_mode",
     )
 
     if st.session_state.get("game_phase") == "reveal":

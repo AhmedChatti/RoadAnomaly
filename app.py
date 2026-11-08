@@ -237,17 +237,29 @@ def welcome_dialog() -> None:
             st.rerun()
 
 
+def _safe_radio(label: str, options: list[str], *, key: str, **kwargs):
+    """Radio wrapper that clears incompatible session values (Streamlit upgrades)."""
+    # Drop legacy key that stored integer indices under older Streamlit builds.
+    legacy = "nav_page" if key == "nav_main" else None
+    if legacy and legacy in st.session_state:
+        del st.session_state[legacy]
+    current = st.session_state.get(key)
+    if current is not None and current not in options:
+        del st.session_state[key]
+    return st.radio(label, options, key=key, **kwargs)
+
+
 def render_topbar() -> str:
     left, nav, right = st.columns([1.4, 3.2, 1])
     with left:
         st.markdown('<div class="brand">RoadAnomaly</div>', unsafe_allow_html=True)
     with nav:
-        page = st.radio(
+        page = _safe_radio(
             "Navigation",
             ["Analyser", "Jouer", "Revue"],
+            key="nav_main",
             horizontal=True,
             label_visibility="collapsed",
-            key="nav_page",
         )
     with right:
         if st.button("Aide", use_container_width=True):
@@ -340,6 +352,16 @@ def render_privacy() -> None:
 
 
 def main() -> None:
+    # Purge legacy radio values that break Streamlit ≥1.6x deserialize (int index vs label).
+    for bad_key in ("nav_page",):
+        val = st.session_state.get(bad_key)
+        if isinstance(val, (int, float)) or (
+            isinstance(val, str) and val not in {"Analyser", "Jouer", "Revue"}
+        ):
+            del st.session_state[bad_key]
+        elif bad_key in st.session_state and not isinstance(val, str):
+            del st.session_state[bad_key]
+
     page = render_topbar()
 
     if st.session_state.get("force_help"):

@@ -29,7 +29,7 @@ Status vocabulary:
 | R-MO-04 | Modeling E2b selective fine-tune from `block_13_expand` | Same + `configure_e2b_finetuning` | Layer-trainability + readiness | IMPLEMENTED / READY | Authorized training after E2a | No metrics yet |
 | R-EV-01 | Evaluation metrics: P/R/F1/IoU/Dice/Acc + limits of Acc | `src/metrics.py`, `evaluation.py`, Phase 3 docs | E0/E1 val tables | PARTIAL (E0/E1 EXECUTED; E2 pending) | E2a/E2b + final test | Test blocked until Stage 5 |
 | R-EV-02 | Curves, qualitative predictions, model comparison, overfitting analysis | Phase 3 figures/CSVs; Phase 4 planned | E1 curves + **regenerated** qualitative; E2 pending | IN PROGRESS | Produce E2 artefacts after training | E2 metrics do not exist yet |
-| R-DE-01 | Deployment / demo if applicable | Planned Streamlit / local demo | Specs in docs only | NOT STARTED | Stage 7 after science complete | Academic prototype only |
+| R-DE-01 | Deployment / demo if applicable | `app.py`, `src/app_inference.py`, `docs/APP_USER_GUIDE.md` | Unit tests OK; live load needs Drive E2b `best.keras` | IMPLEMENTED (code); EXECUTE pending local ckpt | Copy E2b checkpoint from Drive | Academic prototype only; no ADAS claim |
 
 ---
 

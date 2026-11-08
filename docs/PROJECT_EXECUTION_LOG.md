@@ -235,3 +235,14 @@ When finished, paste E2a/E2b checkpoint paths + selected thresholds (or the Driv
 
 **Stages 6–9:** COMPLETED (val + test numbers filled after Stage 5).  
 HEAD after docs push: `8c780d7…`.
+
+---
+
+## 2026-11-08 — Streamlit application (E2b inference)
+
+**Implemented:** `app.py`, `src/app_inference.py`, `requirements-app.txt`, `tests/test_app_inference.py`, `docs/APP_IMPLEMENTATION_PLAN.md`, `docs/APP_USER_GUIDE.md`.  
+**Freeze preserved:** E2b only, thr 0.55, 512×288, `mobilenet_v2`, SHA `280170dc…`.  
+**Tests:** 6/6 unit OK; real checkpoint load **skipped** (E2b `best.keras` not on local disk — only on Google Drive).  
+**User action:** copy Drive  
+`…/checkpoints/phase4/E2b_unet_mobilenetv2_finetune_20261108_1721/best.keras`  
+→ local `checkpoints/phase4/E2b_unet_mobilenetv2_finetune_20261108_1721/best.keras` then `streamlit run app.py`.

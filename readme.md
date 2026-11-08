@@ -38,3 +38,38 @@ If you find this dataset useful, please cite:
 	url = {https://infoscience.epfl.ch/record/269093?ln=en}
 }
 ```
+
+---
+
+## Academic project — supervised segmentation demo (Streamlit)
+
+This repository also contains a **French Streamlit application** that runs the frozen **E2b** model (U-Net + MobileNetV2, operational threshold **0.55**, input **512×288**, normalize `mobilenet_v2`).
+
+### Install
+
+```powershell
+pip install -r requirements-app.txt
+```
+
+### Checkpoint (required, not in Git)
+
+Copy from Google Drive:
+
+`MyDrive/RoadAnomaly/checkpoints/phase4/E2b_unet_mobilenetv2_finetune_20261108_1721/best.keras`
+
+to:
+
+`checkpoints/phase4/E2b_unet_mobilenetv2_finetune_20261108_1721/best.keras`
+
+Expected SHA-256: `280170dc64347b0b4cc8ce3af9be40dec4ac3733b27d1abeb620cc0c8e88e432`
+
+Or set `ROADANOMALY_E2B_CHECKPOINT` to the file path.
+
+### Run
+
+```powershell
+streamlit run app.py
+```
+
+See `docs/APP_USER_GUIDE.md` and `docs/APP_IMPLEMENTATION_PLAN.md`.
+Technical report: `docs/RAPPORT_TECHNIQUE_CRISP_DM.md`.

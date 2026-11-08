@@ -151,9 +151,8 @@ n_val=n_test=9 ; pas de lost-tire en test ; scènes web biaisées ; seuils diff�
 
 ## 8. CRISP-DM — Deployment
 
-**Implémenté :** pipeline Colab/Drive pour entraînement et artefacts.  
-**Non implémenté :** application Streamlit grand public.  
-**Proposition :** démo locale upload → même prétraitement → checkpoint E2b → masque + overlay, avec disclaimer « prototype académique ».
+**Implémenté :** pipeline Colab/Drive pour entraînement et artefacts ; démo Streamlit locale (`app.py`) — upload d’image → prétraitement E2b (`mobilenet_v2`, 512×288) → checkpoint E2b figé (seuil 0,55) → masque, superposition et téléchargements, avec disclaimer « prototype académique ».  
+**Hors périmètre :** application grand public / ADAS validé. Guide : `docs/APP_USER_GUIDE.md`.
 
 ---
 

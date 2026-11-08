@@ -17,10 +17,13 @@ from PIL import Image
 
 from config import load_config, preprocessing_size
 
-NormalizeMode = Literal["scale_0_1", "imagenet", "none"]
+NormalizeMode = Literal["scale_0_1", "imagenet", "mobilenet_v2", "none"]
 
 IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
 IMAGENET_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+
+# Keras Applications MobileNetV2 preprocess_input (mode="tf"): map [0, 255] → [-1, 1].
+# Do NOT combine this with normalize="imagenet" (mean/std) — that would double-normalize.
 
 OFFICIAL_BACKGROUND = 0
 OFFICIAL_ANOMALY = 2
@@ -92,12 +95,18 @@ def resize_mask_nearest(mask: np.ndarray, width: int, height: int) -> np.ndarray
 
 
 def normalize_image(image_uint8: np.ndarray, mode: NormalizeMode) -> np.ndarray:
+    if mode == "mobilenet_v2":
+        # Keras MobileNetV2 / TF preprocess_input. Operates on [0, 255] uint8 scale.
+        return image_uint8.astype(np.float32) / 127.5 - 1.0
+
     image = image_uint8.astype(np.float32) / 255.0
     if mode == "none":
         return image
     if mode == "scale_0_1":
         return image
     if mode == "imagenet":
+        # Torchvision-style channel mean/std on [0, 1]. Kept for non-Keras experiments.
+        # Phase 4 MobileNetV2 must use "mobilenet_v2", not this mode.
         return (image - IMAGENET_MEAN) / IMAGENET_STD
     raise ValueError(f"Unknown normalize mode: {mode}")
 
@@ -105,7 +114,9 @@ def normalize_image(image_uint8: np.ndarray, mode: NormalizeMode) -> np.ndarray:
 def denormalize_image(image_float: np.ndarray, mode: NormalizeMode) -> np.ndarray:
     """Convert a normalized float image back to uint8 RGB for visualization."""
     array = image_float.astype(np.float32)
-    if mode == "imagenet":
+    if mode == "mobilenet_v2":
+        array = (array + 1.0) * 127.5 / 255.0
+    elif mode == "imagenet":
         array = array * IMAGENET_STD + IMAGENET_MEAN
     array = np.clip(array, 0.0, 1.0)
     return (array * 255.0).round().astype(np.uint8)

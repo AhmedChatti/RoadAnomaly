@@ -37,7 +37,7 @@ Source : `experiments/results/phase3_E0_E1_val_comparison.csv`
 
 - `phase3_E0_metric_trap.png`
 - `phase3_E1_training_curves.png`
-- `phase3_E1_val_qualitative.png`
+- `phase3_E1_val_qualitative.png` — **regenerated 2026-11-08** from canonical E1_1510 + val only (see `phase3_E1_val_qualitative.REGENERATED.json`; original file was lost to local disk cleanup)
 
 ## Décisions techniques notées
 

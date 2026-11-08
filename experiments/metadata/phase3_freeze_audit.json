@@ -3,6 +3,11 @@
   "canonical_e0": "E0_all_background",
   "canonical_e1": "E1_cnn_scratch_20261108_1510",
   "abandoned_e1": "E1_cnn_scratch_20261108_1501",
+  "abandoned_e1_checkpoint_status": "unavailable",
+  "historical_notes": [
+    "abandoned E1_1501 checkpoint unavailable (disk cleanup); metadata retained; not required for canonical reproducibility"
+  ],
+  "qualitative_figure_provenance": "regenerated_documented",
   "split_manifest_sha256": "9a01c05cfc7d33783c4f64b91b0ae423a4d3ad57439fd71ffc029a8f04585c78",
   "checkpoint_sha256": "567bde326ee5b776bc34132b23012543b35f195ec8d60229d01196eb1a0fb234",
   "training_threshold": 0.5,

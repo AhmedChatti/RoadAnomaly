@@ -1,0 +1,92 @@
+{
+  "phase": 4,
+  "description": "U-Net + MobileNetV2 transfer learning (E2a frozen encoder, E2b selective fine-tune)",
+  "inherits_protocol": "configs/default.json",
+  "git_commit_required": "337cad06211cc09bb32d80fbb897cde15d21f777",
+  "input": {
+    "height": 288,
+    "width": 512,
+    "normalize": "mobilenet_v2",
+    "normalize_notes": "Keras Applications TF-mode preprocessing: uint8/127.5 - 1 → [-1, 1]. Distinct from default.json imagenet mean/std used nowhere for MobileNetV2."
+  },
+  "seed": 42,
+  "batch_size": 4,
+  "epochs_max": 80,
+  "early_stopping_patience": 12,
+  "checkpoint_metric": "val_mean_dice",
+  "checkpoint_mode": "max",
+  "training_threshold": 0.5,
+  "threshold_selection": {
+    "split": "val",
+    "metric": "mean_dice",
+    "grid_start": 0.1,
+    "grid_stop": 0.9,
+    "grid_steps": 17
+  },
+  "loss": {
+    "name": "weighted_bce + soft_dice",
+    "positive_weight": 15.0,
+    "dice_weight": 1.0,
+    "notes": "Same convention as frozen Phase 3 E1 (positive_weight=15)."
+  },
+  "augmentation": {
+    "use_phase2_config": true,
+    "enabled_on_split": "train"
+  },
+  "encoder": {
+    "name": "MobileNetV2",
+    "alpha": 1.0,
+    "skip_layer_names": [
+      "block_1_expand_relu",
+      "block_3_expand_relu",
+      "block_6_expand_relu",
+      "block_13_expand_relu"
+    ],
+    "bottleneck_layer_name": "out_relu"
+  },
+  "decoder": {
+    "filters": [256, 128, 64, 32],
+    "final_conv_filters": 16,
+    "dropout": 0.2,
+    "use_batch_norm": false,
+    "notes": "Four skip stages then a final upsample to full resolution. No decoder BatchNorm."
+  },
+  "E2a": {
+    "experiment_prefix": "E2a_unet_mobilenetv2_frozen",
+    "encoder_trainable": false,
+    "weights": "imagenet",
+    "learning_rate": 0.001,
+    "freeze_batch_norm": true
+  },
+  "E2b": {
+    "experiment_prefix": "E2b_unet_mobilenetv2_finetune",
+    "initialize_from": "best_E2a_checkpoint",
+    "encoder_trainable": "selective",
+    "finetune_from_layer": "block_13_expand",
+    "learning_rate": 0.0001,
+    "freeze_batch_norm": true,
+    "notes": "Unfreeze block_13 and later (including bottleneck). Keep all BatchNormalization frozen."
+  },
+  "artefacts": {
+    "checkpoints_subdir": "checkpoints/phase4",
+    "metadata_subdir": "experiments/metadata/phase4",
+    "results_subdir": "experiments/results/phase4",
+    "figures_subdir": "experiments/figures/phase4",
+    "never_write_to": [
+      "checkpoints/E1_cnn_scratch_20261108_1510",
+      "checkpoints/phase3",
+      "experiments/metadata/E0_all_background.json",
+      "experiments/metadata/E1_cnn_scratch_20261108_1510.json",
+      "experiments/metadata/E1_cnn_scratch_20261108_1501.json",
+      "experiments/metadata/phase3_freeze_audit.json",
+      "experiments/results/E0_all_background_val_per_image.csv",
+      "experiments/results/phase3_E0_E1_val_comparison.csv"
+    ]
+  },
+  "safety": {
+    "allow_test_access": false,
+    "require_authorize_training_flag": true,
+    "require_authorize_imagenet_download_flag": true,
+    "default_weights_for_tests": null
+  }
+}

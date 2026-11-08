@@ -179,12 +179,34 @@ def main() -> int:
         issues,
     )
 
-    # --- Non-canonical run preserved but not primary ---
-    print("\n[4] Non-canonical E1_1501 preserved")
+    # --- Non-canonical run: metadata required; checkpoint is historical-only ---
+    print("\n[4] Non-canonical E1_1501 (historical, non-blocking if weights missing)")
     abandoned = root / "experiments" / "metadata" / "E1_cnn_scratch_20261108_1501.json"
     abandoned_ckpt = root / "checkpoints" / "E1_cnn_scratch_20261108_1501" / "best.keras"
     require(abandoned.is_file(), "abandoned E1_1501 metadata preserved", issues)
-    require(abandoned_ckpt.is_file(), "abandoned E1_1501 checkpoint preserved", issues)
+    historical_notes: list[str] = []
+    if abandoned_ckpt.is_file():
+        print("  OK  abandoned E1_1501 checkpoint preserved")
+        abandoned_ckpt_status = "present"
+    else:
+        note = (
+            "abandoned E1_1501 checkpoint unavailable (disk cleanup); "
+            "metadata retained; not required for canonical reproducibility"
+        )
+        print(f"NOTE {note}")
+        historical_notes.append(note)
+        abandoned_ckpt_status = "unavailable"
+
+    qual = root / "experiments" / "figures" / "phase3_E1_val_qualitative.png"
+    qual_sidecar = root / "experiments" / "figures" / "phase3_E1_val_qualitative.REGENERATED.json"
+    qualitative_provenance = None
+    if qual_sidecar.is_file():
+        qualitative_provenance = "regenerated_documented"
+        print("  INFO qualitative figure has REGENERATED sidecar provenance")
+    elif qual.is_file():
+        qualitative_provenance = "original_or_undocumented"
+    else:
+        qualitative_provenance = "missing"
 
     # Write audit report sidecar (does not alter frozen metrics)
     report = {
@@ -192,6 +214,9 @@ def main() -> int:
         "canonical_e0": CANONICAL_E0,
         "canonical_e1": CANONICAL_E1,
         "abandoned_e1": "E1_cnn_scratch_20261108_1501",
+        "abandoned_e1_checkpoint_status": abandoned_ckpt_status,
+        "historical_notes": historical_notes,
+        "qualitative_figure_provenance": qualitative_provenance,
         "split_manifest_sha256": split_hash,
         "checkpoint_sha256": ckpt_hash,
         "training_threshold": TRAIN_THR,

@@ -1,8 +1,10 @@
 """
-RoadAnomaly — application Streamlit d'inférence (modèle E2b figé).
+RoadAnomaly — application Streamlit grand public (interface française).
 
-Lancement :
-  streamlit run app.py
+Inférence scientifique inchangée : prédiction officielle E2b au seuil figé 0,55
+(implémentée dans src/app_inference.py — non exposée à l'utilisateur).
+
+Lancement : streamlit run app.py
 """
 
 from __future__ import annotations
@@ -12,6 +14,7 @@ from pathlib import Path
 
 import numpy as np
 import streamlit as st
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parent
 SRC = ROOT / "src"
@@ -19,17 +22,8 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from app_inference import (  # noqa: E402
-    E2B_CHECKPOINT_SHA256,
-    E2B_EXPERIMENT_ID,
-    E2B_INPUT_HEIGHT,
-    E2B_INPUT_WIDTH,
     E2B_THRESHOLD,
-    EXPLORATION_LABEL,
-    EXPLORATION_THRESHOLD_MAX,
-    EXPLORATION_THRESHOLD_MIN,
-    DEFAULT_RELATIVE_CHECKPOINT,
     colorize_mask,
-    derive_exploratory_view,
     encode_png_mask,
     encode_png_probability,
     encode_png_rgb,
@@ -37,630 +31,590 @@ from app_inference import (  # noqa: E402
     load_user_image,
     predict_e2b,
     probability_heatmap_rgb,
-    resolve_e2b_checkpoint,
 )
 
 st.set_page_config(
-    page_title="RoadAnomaly — Segmentation",
+    page_title="RoadAnomaly",
     page_icon="🛣️",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 CUSTOM_CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Source+Sans+3:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Source+Sans+3:wght@400;500;600&display=swap');
 
 :root {
-  --ra-ink: #1c2430;
-  --ra-muted: #5c6675;
-  --ra-paper: #f3efe6;
-  --ra-card: #fffcf7;
-  --ra-line: #ddd4c6;
-  --ra-signal: #e85d2a;
-  --ra-signal-deep: #b8441a;
-  --ra-asphalt: #243040;
+  --ink: #15202b;
+  --muted: #5b6b7c;
+  --paper: #f6f8fa;
+  --card: #ffffff;
+  --line: #e3e8ef;
+  --brand: #0f6e56;
+  --brand-deep: #0b5542;
+  --accent: #e8f5f0;
+  --warn: #8a5a00;
 }
 
-html, body, [class*="css"]  {
+html, body, [class*="css"] {
   font-family: "Source Sans 3", "Segoe UI", sans-serif;
-  color: var(--ra-ink);
+  color: var(--ink);
 }
 .stApp {
   background:
-    radial-gradient(1200px 500px at 10% -10%, #ffe8d6 0%, transparent 55%),
-    radial-gradient(900px 400px at 100% 0%, #e7eef5 0%, transparent 50%),
-    linear-gradient(180deg, #f7f3eb 0%, #efe9de 100%);
+    radial-gradient(900px 420px at 0% -10%, #dff3ea 0%, transparent 55%),
+    radial-gradient(800px 380px at 100% 0%, #e8eef6 0%, transparent 50%),
+    linear-gradient(180deg, #f7faf9 0%, #eef2f5 100%);
 }
 .block-container {
-  padding-top: 1.2rem;
+  padding-top: 1rem;
   padding-bottom: 2.5rem;
-  max-width: 1180px;
+  max-width: 1080px;
 }
-h1, h2, h3, .ra-title {
-  font-family: "Fraunces", Georgia, serif;
-  letter-spacing: -0.02em;
-  color: var(--ra-ink) !important;
+h1, h2, h3, .brand {
+  font-family: "Manrope", "Segoe UI", sans-serif;
+  letter-spacing: -0.03em;
+  color: var(--ink) !important;
 }
-[data-testid="stSidebar"] {
-  background: linear-gradient(180deg, #1f2a38 0%, #16202b 100%);
-}
-[data-testid="stSidebar"] * {
-  color: #e8eef5 !important;
-}
-[data-testid="stSidebar"] .stMarkdown p,
-[data-testid="stSidebar"] .stCaption {
-  color: #c5d0dc !important;
-}
+header[data-testid="stHeader"] { background: transparent; }
+footer { visibility: hidden; }
+#MainMenu { visibility: hidden; }
 
-.ra-hero {
-  position: relative;
-  overflow: hidden;
-  background:
-    linear-gradient(120deg, rgba(28,36,48,0.92), rgba(36,48,64,0.88)),
-    url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-  color: #f7f3eb;
-  padding: 1.75rem 1.9rem 1.55rem;
-  border-radius: 18px;
+.topbar {
+  display: flex; justify-content: space-between; align-items: center;
   margin-bottom: 1.1rem;
-  border: 1px solid rgba(255,255,255,0.08);
-  box-shadow: 0 18px 40px rgba(28, 36, 48, 0.18);
 }
-.ra-hero h1 {
-  color: #fff8f0 !important;
-  margin: 0 0 0.45rem 0;
-  font-size: 2.15rem;
-  font-weight: 700;
+.brand {
+  font-size: 1.35rem; font-weight: 800; color: var(--brand-deep) !important;
 }
-.ra-hero p {
-  margin: 0;
-  color: #d9e0e8;
-  max-width: 46rem;
-  line-height: 1.55;
-  font-size: 1.02rem;
+.hero {
+  background: linear-gradient(135deg, #0f6e56 0%, #148567 45%, #1a6f8a 100%);
+  color: #f4fffb;
+  border-radius: 22px;
+  padding: 1.8rem 1.7rem 1.55rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 18px 40px rgba(15, 110, 86, 0.22);
 }
-.ra-badge-row { margin-top: 1rem; display: flex; flex-wrap: wrap; gap: 0.45rem; }
-.ra-badge {
-  display: inline-block;
-  padding: 0.28rem 0.75rem;
-  border-radius: 999px;
-  background: var(--ra-signal);
-  color: white;
-  font-size: 0.76rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-.ra-badge.alt {
-  background: rgba(255,255,255,0.12);
-  border: 1px solid rgba(255,255,255,0.18);
-}
-
-.ra-section {
-  margin: 1.35rem 0 0.55rem 0;
-  font-size: 1.35rem;
-}
-.ra-lead {
-  color: var(--ra-muted);
-  margin-top: -0.35rem;
-  margin-bottom: 0.9rem;
-}
-
-.ra-metric {
-  background: var(--ra-card);
-  border: 1px solid var(--ra-line);
-  border-radius: 14px;
-  padding: 1rem 1.05rem 0.95rem;
-  height: 100%;
-  box-shadow: 0 8px 22px rgba(28,36,48,0.05);
-  position: relative;
-  overflow: hidden;
-}
-.ra-metric::before {
-  content: "";
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 4px;
-  background: var(--ra-signal);
-}
-.ra-metric .label {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ra-muted);
-  margin-bottom: 0.35rem;
-  font-weight: 600;
-}
-.ra-metric .value {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--ra-ink);
-  font-family: "Fraunces", Georgia, serif;
-  line-height: 1.1;
-}
-.ra-metric .hint {
-  font-size: 0.82rem;
-  color: var(--ra-muted);
-  margin-top: 0.35rem;
-  line-height: 1.35;
-}
-
-.ra-panel {
-  background: var(--ra-card);
-  border: 1px solid var(--ra-line);
-  border-radius: 14px;
-  padding: 0.7rem 0.7rem 0.55rem;
-  box-shadow: 0 10px 24px rgba(28,36,48,0.05);
-  height: 100%;
-}
-.ra-panel .eyebrow {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ra-signal-deep);
-  font-weight: 700;
-  margin-bottom: 0.15rem;
-}
-.ra-panel h4 {
+.hero h1 {
+  color: #ffffff !important;
+  font-size: clamp(1.7rem, 4vw, 2.35rem);
   margin: 0 0 0.55rem 0;
-  font-size: 1.02rem;
-  font-family: "Fraunces", Georgia, serif;
-  color: var(--ra-ink);
+  font-weight: 800;
+  max-width: 16ch;
+  line-height: 1.15;
 }
-.ra-panel .cap {
-  margin-top: 0.45rem;
-  font-size: 0.8rem;
-  color: var(--ra-muted);
-}
-
-.ra-warn {
-  background: #fff7ee;
-  border: 1px solid #f0d7bf;
-  border-left: 5px solid var(--ra-signal);
-  padding: 1rem 1.1rem;
-  border-radius: 0 12px 12px 0;
-  color: #3f3a34;
+.hero p {
+  margin: 0;
+  max-width: 36rem;
+  color: #d9f5eb;
+  font-size: 1.05rem;
   line-height: 1.5;
 }
-.ra-explore {
-  background: #fffdf5;
-  border: 1px dashed #c9a227;
-  border-radius: 14px;
-  padding: 1rem 1.1rem 1.15rem;
-  margin-top: 0.35rem;
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 1.15rem 1.2rem;
+  box-shadow: 0 10px 28px rgba(21, 32, 43, 0.05);
 }
-.ra-explore h4 {
+.card h3 {
   margin: 0 0 0.35rem 0;
-  font-family: "Fraunces", Georgia, serif;
-  color: #7a5b00;
+  font-size: 1.15rem;
 }
-.ra-explore p {
-  margin: 0 0 0.75rem 0;
-  color: #6b5a2a;
-  font-size: 0.92rem;
+.muted { color: var(--muted); line-height: 1.5; }
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin: 1rem 0 0.2rem;
+}
+.step {
+  background: var(--accent);
+  border-radius: 14px;
+  padding: 0.85rem 0.9rem;
+}
+.step .n {
+  font-family: Manrope, sans-serif;
+  font-weight: 800;
+  color: var(--brand);
+  font-size: 0.85rem;
+}
+.step .t { font-weight: 700; margin: 0.2rem 0; }
+.step .d { color: var(--muted); font-size: 0.9rem; margin: 0; }
+.metric-lite {
+  background: #f4faf7;
+  border: 1px solid #d7ebe3;
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+}
+.metric-lite .lab {
+  font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--muted); font-weight: 700;
+}
+.metric-lite .val {
+  font-family: Manrope, sans-serif; font-size: 1.6rem; font-weight: 800;
+  color: var(--brand-deep); margin-top: 0.15rem;
+}
+.disclaimer {
+  background: #fff8e8;
+  border-left: 4px solid #d4a017;
+  border-radius: 0 12px 12px 0;
+  padding: 0.85rem 1rem;
+  color: #5c4a1d;
   line-height: 1.45;
+  margin-top: 0.9rem;
 }
-.ra-legend {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-  margin: 0.35rem 0 0.9rem;
-  color: var(--ra-muted);
-  font-size: 0.86rem;
-}
-.ra-swatch {
-  display: inline-block;
-  width: 0.85rem;
-  height: 0.85rem;
-  border-radius: 3px;
-  margin-right: 0.35rem;
-  vertical-align: -1px;
+.panel-title {
+  font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--brand); font-weight: 800; margin-bottom: 0.25rem;
 }
 div.stButton > button[kind="primary"] {
-  background: linear-gradient(180deg, #f06a35, #d4511f);
-  border: none;
-  font-weight: 700;
+  background: linear-gradient(180deg, #14936f, #0f6e56);
+  border: none; font-weight: 700; border-radius: 12px;
 }
-footer { visibility: hidden; }
-header[data-testid="stHeader"] { background: transparent; }
+@media (max-width: 800px) {
+  .steps { grid-template-columns: 1fr; }
+  .hero h1 { max-width: none; }
+}
 </style>
 """
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 
-@st.cache_resource(show_spinner="Chargement du modèle E2b…")
+@st.cache_resource(show_spinner=False)
 def get_cached_model():
     return load_e2b_model(verify_sha=True)
 
 
-def render_home() -> None:
+def _is_onboarded() -> bool:
+    if st.session_state.get("onboarded"):
+        return True
+    try:
+        return st.query_params.get("onboarded") == "1"
+    except Exception:
+        return False
+
+
+def _mark_onboarded() -> None:
+    st.session_state["onboarded"] = True
+    try:
+        st.query_params["onboarded"] = "1"
+    except Exception:
+        pass
+
+
+@st.dialog("Bienvenue sur RoadAnomaly !")
+def welcome_dialog() -> None:
+    st.markdown(
+        "Analysez une image de route et identifiez automatiquement les zones "
+        "potentiellement anormales."
+    )
     st.markdown(
         """
-<div class="ra-hero">
-  <h1>RoadAnomaly</h1>
-  <p>
-    Prototype académique de <strong>segmentation sémantique binaire supervisée</strong>
-    pour localiser des obstacles routiers inhabituels — animaux, cônes, débris —
-    directement sur une image de route.
-  </p>
-  <div class="ra-badge-row">
-    <span class="ra-badge">E2b figé</span>
-    <span class="ra-badge alt">seuil 0,55</span>
-    <span class="ra-badge alt">entrée 512×288</span>
-    <span class="ra-badge alt">MobileNetV2</span>
-  </div>
+<div class="steps">
+  <div class="step"><div class="n">Étape 1</div><div class="t">Importez une image</div>
+  <p class="d">Choisissez une photo depuis votre appareil.</p></div>
+  <div class="step"><div class="n">Étape 2</div><div class="t">Lancez l'analyse</div>
+  <p class="d">Notre système examine automatiquement l'image.</p></div>
+  <div class="step"><div class="n">Étape 3</div><div class="t">Consultez les résultats</div>
+  <p class="d">Visualisez les zones détectées et téléchargez votre résultat.</p></div>
 </div>
 """,
         unsafe_allow_html=True,
     )
+    st.info(
+        "Astuce : préférez une photo nette, bien éclairée, prise face à la route. "
+        "Évitez les images très floues ou trop sombres."
+    )
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("Commencer", type="primary", use_container_width=True):
+            _mark_onboarded()
+            st.rerun()
+    with c2:
+        if st.button("Fermer", use_container_width=True):
+            _mark_onboarded()
+            st.rerun()
+
+
+def render_topbar() -> None:
+    left, right = st.columns([3, 1])
+    with left:
+        st.markdown('<div class="brand">RoadAnomaly</div>', unsafe_allow_html=True)
+    with right:
+        if st.button("Aide", use_container_width=True):
+            st.session_state["force_help"] = True
+
+
+def render_hero() -> None:
     st.markdown(
         """
-Le modèle **E2b** (U-Net + encodeur MobileNetV2, fine-tuning sélectif) a été choisi sur la
-**validation**, puis évalué **une seule fois** sur le test. Le seuil **0,55** n’est pas
-retuné sur vos uploads. Il détecte les anomalies **telles qu’annotées** dans RoadAnomaly —
-ce n’est pas une détection non supervisée au sens de Lis et al. (ICCV 2019).
+<div class="hero">
+  <h1>Rendez vos routes plus sûres.</h1>
+  <p>Une analyse intelligente des images routières pour identifier les obstacles
+  et anomalies visibles.</p>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def load_example_train_image() -> tuple[np.ndarray, str] | None:
+    """Permitted non-test example from the training split only."""
+    try:
+        import pandas as pd
+
+        manifest = pd.read_csv(ROOT / "data/processed/split_manifest.csv")
+        train = manifest.loc[manifest["split"] == "train", "frame_id"].tolist()
+        preferred = [
+            "animals17_E6_near_Kvaenangen",
+            "obstacles03_fallen_tree",
+            "cones01",
+        ]
+        ordered = [f for f in preferred if f in train] + [f for f in train if f not in preferred]
+        for frame_id in ordered[:8]:
+            path = ROOT / "frames" / f"{frame_id}.webp"
+            if path.is_file():
+                # Convert webp bytes to PNG-compatible RGB via loader path API
+                arr = np.asarray(Image.open(path).convert("RGB"), dtype=np.uint8)
+                return arr, f"exemple_{frame_id}.png"
+    except Exception:
+        return None
+    return None
+
+
+def friendly_error(exc: Exception) -> str:
+    msg = str(exc).lower()
+    if "format" in msg or "supporté" in msg or "gif" in msg:
+        return "Ce format n’est pas pris en charge. Utilisez une image JPG, JPEG ou PNG."
+    if "trop petite" in msg:
+        return "L’image est trop petite. Choisissez une photo plus grande."
+    if "checkpoint" in msg or "no such file" in msg or "introuvable" in msg:
+        return (
+            "Le service d’analyse n’est pas prêt sur cet appareil "
+            "(fichier modèle manquant). Réessayez plus tard ou contactez l’équipe projet."
+        )
+    return "L’analyse n’a pas pu être terminée. Vérifiez votre image et réessayez."
+
+
+def render_faq() -> None:
+    with st.expander("Questions fréquentes", expanded=False):
+        st.markdown(
+            """
+**Que fait l’application ?**  
+Elle examine une photo de route et met en évidence des zones potentiellement inhabituelles
+(obstacles, objets inattendus), sous forme d’aide visuelle.
+
+**Que signifie une zone colorée ?**  
+Ce sont des régions que le système estime *potentiellement anormales*. Ce n’est pas une
+preuve qu’un danger est confirmé, ni une classification du type d’objet.
+
+**Quelles images fonctionnent le mieux ?**  
+Photos nettes, de jour, face à la chaussée, sans trop de flou ni de contre-jour.
+
+**Pourquoi une partie d’un obstacle peut manquer ?**  
+Le système est expérimental et entraîné sur un jeu limité. Certains contours ou objets
+peu courants peuvent être partiellement détectés.
+
+**Mes images sont-elles conservées ?**  
+Non. L’analyse se fait en mémoire pendant votre session. Aucun compte n’est requis et
+aucune galerie serveur n’est créée par cette application.
 """
+        )
+
+
+def render_privacy() -> None:
+    st.caption(
+        "Confidentialité : les images restent en mémoire le temps de l’analyse dans cette "
+        "session et ne sont pas enregistrées de façon permanente par l’application."
     )
-
-
-def render_sidebar() -> None:
-    with st.sidebar:
-        st.markdown("### Protocole figé")
-        st.write(f"**Expérience**  \n`{E2B_EXPERIMENT_ID}`")
-        st.write(f"**Seuil**  \n`{E2B_THRESHOLD}` (non retuné)")
-        st.write(f"**Entrée modèle**  \n`{E2B_INPUT_WIDTH}×{E2B_INPUT_HEIGHT}`")
-        st.write("**Normalisation**  \n`mobilenet_v2`")
-        st.caption(f"SHA-256 : `{E2B_CHECKPOINT_SHA256[:20]}…`")
-        st.divider()
-        st.markdown("### Checkpoint")
-        try:
-            path = resolve_e2b_checkpoint()
-            st.success("E2b disponible")
-            st.caption(str(path))
-        except FileNotFoundError as exc:
-            st.error("Checkpoint E2b manquant")
-            st.code(str(exc), language=None)
-            st.info(f"Attendu : `{DEFAULT_RELATIVE_CHECKPOINT}`")
-
-
-def render_limitations() -> None:
-    st.markdown('<h3 class="ra-section">Limites et interprétation</h3>', unsafe_allow_html=True)
-    st.markdown(
-        """
-<div class="ra-warn">
-<strong>Prédiction.</strong> Probabilité d’anomalie par pixel, puis masque binaire au seuil 0,55.<br>
-<strong>Pixel positif</strong> = classe anomalie <em>prédite</em>, pas une vérité terrain.<br>
-<strong>Jeu petit</strong> (60 images) : échecs possibles hors distribution.<br>
-<strong>Prototype académique</strong> — pas un système ADAS validé.
-La « proba. moyenne » n’est <em>pas</em> une confiance calibrée.
-</div>
-""",
-        unsafe_allow_html=True,
-    )
-
-
-def metric_card(label: str, value: str, hint: str) -> None:
-    st.markdown(
-        f"""
-<div class="ra-metric">
-  <div class="label">{label}</div>
-  <div class="value">{value}</div>
-  <div class="hint">{hint}</div>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
-
-
-def panel(eyebrow: str, title: str, caption: str) -> None:
-    st.markdown(
-        f"""
-<div class="ra-panel">
-  <div class="eyebrow">{eyebrow}</div>
-  <h4>{title}</h4>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
-    # caption rendered after image by caller optionally
 
 
 def main() -> None:
-    render_home()
-    render_sidebar()
+    render_topbar()
 
-    st.markdown('<h3 class="ra-section">Analyse d’une image</h3>', unsafe_allow_html=True)
-    st.markdown(
-        '<p class="ra-lead">JPG / JPEG / PNG · RGB · le masque est recalculé à la résolution d’origine.</p>',
-        unsafe_allow_html=True,
-    )
+    if st.session_state.get("force_help"):
+        st.session_state["force_help"] = False
+        welcome_dialog()
+    elif not _is_onboarded():
+        welcome_dialog()
 
-    uploaded = st.file_uploader(
-        "Charger une image de route",
-        type=["jpg", "jpeg", "png"],
-        label_visibility="collapsed",
-    )
+    render_hero()
 
-    if uploaded is None:
-        render_limitations()
-        st.caption("Astuce démo : préférez une image hors du jeu de test figé.")
-        return
-
-    try:
-        image = load_user_image(uploaded.getvalue(), filename=uploaded.name)
-    except Exception as exc:
-        st.error(f"Fichier invalide : {exc}")
-        return
-
-    file_key = f"{uploaded.name}:{uploaded.size}:{image.shape}"
-    c0, c1 = st.columns([2.2, 1])
-    with c0:
-        st.markdown(
-            f"""
-<div class="ra-panel">
-  <div class="eyebrow">Entrée</div>
-  <h4>{uploaded.name}</h4>
-</div>
-""",
-            unsafe_allow_html=True,
-        )
-        st.image(image, use_container_width=True)
-    with c1:
-        metric_card("Dimensions", f"{image.shape[1]}×{image.shape[0]}", "Le réseau voit 512×288")
-        st.write("")
-        run = st.button("Lancer la prédiction E2b", type="primary", use_container_width=True)
-
-    # Persist results across Streamlit reruns (downloads, widgets).
-    if run or (
-        st.session_state.get("ra_file_key") == file_key and "ra_result" in st.session_state
-    ):
-        need_infer = run or st.session_state.get("ra_file_key") != file_key
-        if need_infer:
-            try:
-                model = get_cached_model()
-            except FileNotFoundError as exc:
-                st.error("Impossible de charger E2b — checkpoint manquant.")
-                st.code(str(exc), language=None)
-                return
-            except Exception as exc:
-                st.error(f"Échec du chargement : {type(exc).__name__}: {exc}")
-                return
-            with st.spinner("Inférence E2b en cours…"):
-                try:
-                    result = predict_e2b(model, image)
-                except Exception as exc:
-                    st.error(f"Échec de la prédiction : {type(exc).__name__}: {exc}")
-                    return
-            st.session_state["ra_file_key"] = file_key
-            st.session_state["ra_result"] = result
-            st.session_state["ra_mask_vis"] = colorize_mask(result.binary_full)
-            st.session_state["ra_heat"] = probability_heatmap_rgb(result.probability_full)
-        else:
-            result = st.session_state["ra_result"]
-    else:
-        render_limitations()
-        return
-
-    # Official artefacts are frozen after inference; exploration never overwrites them.
-    official = result
-    mask_vis = st.session_state["ra_mask_vis"]
-    heat = st.session_state["ra_heat"]
-    assert abs(float(official.threshold) - E2B_THRESHOLD) < 1e-12
-
-    st.markdown(
-        '<h3 class="ra-section">Prédiction officielle (protocole scientifique)</h3>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        f'<p class="ra-lead">Modèle E2b · seuil figé <strong>{E2B_THRESHOLD:.2f}</strong> · '
-        "non retuné sur cette image · résultats de test Stage 5 inchangés.</p>",
-        unsafe_allow_html=True,
-    )
     st.markdown(
         """
-<div class="ra-legend">
-  <span><span class="ra-swatch" style="background:#e85d2a"></span>Anomalie prédite (officiel)</span>
-  <span><span class="ra-swatch" style="background:#1c2430"></span>Fond</span>
-  <span><span class="ra-swatch" style="background:#ffe8b3"></span>Contour du masque</span>
+<div class="card">
+  <h3>Analysez une image de route</h3>
+  <p class="muted">Importez une photo (JPG, JPEG ou PNG), lancez l’analyse, puis consultez
+  les zones signalées. Simple, rapide, sans jargon technique.</p>
 </div>
 """,
         unsafe_allow_html=True,
     )
-
-    m1, m2, m3, m4 = st.columns(4)
-    with m1:
-        metric_card(
-            "Pixels anomalie (officiel)",
-            f"{official.anomaly_pixel_pct:.2f}%",
-            f"Seuil figé {official.threshold:.2f}",
-        )
-    with m2:
-        metric_card(
-            "Proba. moyenne",
-            f"{official.mean_anomaly_probability:.3f}",
-            "Sortie modèle — non calibrée",
-        )
-    with m3:
-        metric_card(
-            "Proba. max",
-            f"{float(official.probability_map.max()):.3f}",
-            "Sur la grille 512×288",
-        )
-    with m4:
-        metric_card("Seuil figé", f"{official.threshold:.2f}", "Choisi sur validation")
-
     st.write("")
-    tab_cmp, tab_explore, tab_prob, tab_dl = st.tabs(
-        [
-            "Comparaison officielle",
-            "Exploration visuelle",
-            "Carte de probabilités",
-            "Téléchargements",
-        ]
-    )
 
-    with tab_cmp:
-        col_a, col_b, col_c = st.columns(3)
-        with col_a:
-            st.markdown(
-                '<div class="ra-panel"><div class="eyebrow">01</div><h4>Image originale</h4></div>',
-                unsafe_allow_html=True,
-            )
-            st.image(official.original_rgb, use_container_width=True)
-            st.caption("Résolution d’origine, non retouchée.")
-        with col_b:
-            st.markdown(
-                '<div class="ra-panel"><div class="eyebrow">02</div>'
-                "<h4>Masque officiel (0,55)</h4></div>",
-                unsafe_allow_html=True,
-            )
-            st.image(mask_vis, use_container_width=True)
-            st.caption("Orange = anomalie (≥ 0,55), fond asphalté.")
-        with col_c:
-            st.markdown(
-                '<div class="ra-panel"><div class="eyebrow">03</div>'
-                "<h4>Superposition officielle</h4></div>",
-                unsafe_allow_html=True,
-            )
-            st.image(official.overlay_rgb, use_container_width=True)
-            st.caption("Prédiction scientifique de référence pour cette image.")
+    if "upload_nonce" not in st.session_state:
+        st.session_state["upload_nonce"] = 0
 
-    with tab_explore:
+    # --- Upload / example ---
+    up_col, tip_col = st.columns([2.2, 1])
+    with up_col:
+        uploaded = st.file_uploader(
+            "Glissez-déposez une image ici, ou cliquez pour la sélectionner",
+            type=["jpg", "jpeg", "png"],
+            accept_multiple_files=False,
+            label_visibility="visible",
+            key=f"uploader_{st.session_state['upload_nonce']}",
+        )
+    with tip_col:
         st.markdown(
-            f"""
-<div class="ra-explore">
-  <h4>{EXPLORATION_LABEL}</h4>
-  <p>
-    Ce curseur ne relance <strong>pas</strong> le modèle et ne modifie <strong>pas</strong>
-    la prédiction officielle (seuil 0,55). Il re-binarise uniquement la carte de
-    probabilités déjà calculée, pour l’interprétation visuelle.
-    <strong>Ce n’est pas un résultat de test validé</strong> et ne peut pas servir
-    à retuner le protocole.
-  </p>
+            """
+<div class="card">
+  <div class="panel-title">Conseil</div>
+  <p class="muted" style="margin:0">Photo claire, route bien visible.
+  Formats : JPG, JPEG, PNG.</p>
 </div>
 """,
             unsafe_allow_html=True,
         )
-        explore_thr = st.slider(
-            EXPLORATION_LABEL,
-            min_value=float(EXPLORATION_THRESHOLD_MIN),
-            max_value=float(EXPLORATION_THRESHOLD_MAX),
-            value=float(E2B_THRESHOLD),
-            step=0.05,
-            help="Hors protocole scientifique — visualisation seulement.",
-        )
-        explore = derive_exploratory_view(official, explore_thr)
-        # Prove UI path cannot mutate official session artefacts.
-        assert np.array_equal(st.session_state["ra_result"].binary_full, official.binary_full)
-        assert abs(float(st.session_state["ra_result"].threshold) - E2B_THRESHOLD) < 1e-12
+        if st.button("Essayer un exemple", use_container_width=True):
+            example = load_example_train_image()
+            if example is None:
+                st.warning("Aucun exemple disponible sur cet appareil.")
+            else:
+                arr, name = example
+                st.session_state["pending_image"] = arr
+                st.session_state["pending_name"] = name
+                st.session_state.pop("result", None)
+                st.session_state.pop("busy", None)
+                st.rerun()
 
-        e0, e1, e2 = st.columns(3)
-        with e0:
-            metric_card(
-                "Seuil exploratoire",
-                f"{explore.threshold:.2f}",
-                explore.label,
-            )
-        with e1:
-            metric_card(
-                "Pixels (exploratoire)",
-                f"{explore.anomaly_pixel_pct:.2f}%",
-                "Recalculé sans nouvelle inférence",
-            )
-        with e2:
-            metric_card(
-                "Pixels (officiel, inchangé)",
-                f"{official.anomaly_pixel_pct:.2f}%",
-                f"Toujours au seuil {E2B_THRESHOLD:.2f}",
-            )
+    image = None
+    image_name = "image.png"
+    if "pending_image" in st.session_state and uploaded is None:
+        image = st.session_state["pending_image"]
+        image_name = st.session_state.get("pending_name", "exemple.png")
+    elif uploaded is not None:
+        try:
+            image = load_user_image(uploaded.getvalue(), filename=uploaded.name)
+            image_name = uploaded.name
+            st.session_state.pop("pending_image", None)
+        except Exception as exc:
+            st.error(friendly_error(exc))
+            render_faq()
+            render_privacy()
+            return
 
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown(
-                '<div class="ra-panel"><div class="eyebrow">Officiel</div>'
-                "<h4>Masque @ 0,55 (référence)</h4></div>",
-                unsafe_allow_html=True,
-            )
-            st.image(mask_vis, use_container_width=True)
-            st.caption("Ne change jamais avec le curseur.")
-        with c2:
-            st.markdown(
-                f'<div class="ra-panel"><div class="eyebrow">Exploratoire</div>'
-                f"<h4>Masque @ {explore.threshold:.2f}</h4></div>",
-                unsafe_allow_html=True,
-            )
-            st.image(colorize_mask(explore.binary_full), use_container_width=True)
-            st.caption(EXPLORATION_LABEL)
+    if image is None:
+        render_faq()
+        render_privacy()
+        return
 
+    st.markdown("#### Aperçu")
+    preview_c, action_c = st.columns([2.2, 1])
+    with preview_c:
+        st.image(image, use_container_width=True, caption=image_name)
+    with action_c:
         st.markdown(
-            f'<div class="ra-panel"><div class="eyebrow">Exploratoire</div>'
-            f"<h4>Superposition @ {explore.threshold:.2f}</h4></div>",
+            f"""
+<div class="metric-lite">
+  <div class="lab">Taille</div>
+  <div class="val" style="font-size:1.25rem">{image.shape[1]}×{image.shape[0]}</div>
+</div>
+""",
             unsafe_allow_html=True,
         )
-        st.image(explore.overlay_rgb, use_container_width=True)
-        st.download_button(
-            f"Télécharger masque exploratoire (@ {explore.threshold:.2f})",
-            data=encode_png_mask(explore.binary_full),
-            file_name=f"roadanomaly_mask_exploratory_{explore.threshold:.2f}.png",
-            mime="image/png",
+        st.write("")
+        analyze = st.button(
+            "Analyser l'image",
+            type="primary",
             use_container_width=True,
-            key="dl_explore_mask",
+            disabled=bool(st.session_state.get("busy")),
+        )
+        if st.button("Nouvelle image", use_container_width=True):
+            st.session_state["upload_nonce"] = int(st.session_state.get("upload_nonce", 0)) + 1
+            for key in ("result", "result_key", "pending_image", "pending_name", "busy", "mask_vis", "analyze_key"):
+                st.session_state.pop(key, None)
+            st.rerun()
+
+    file_key = f"{image_name}:{image.shape}:{int(image.mean()*1000)}"
+    if analyze:
+        st.session_state["busy"] = True
+        st.session_state["analyze_key"] = file_key
+
+    need_run = (
+        st.session_state.get("busy")
+        and st.session_state.get("analyze_key") == file_key
+        and (
+            "result" not in st.session_state
+            or st.session_state.get("result_key") != file_key
+        )
+    )
+
+    if need_run:
+        progress = st.empty()
+        progress.info("Analyse de votre image en cours...")
+        try:
+            model = get_cached_model()
+            # Official prediction only — threshold fixed inside predict_e2b().
+            result = predict_e2b(model, image)
+            assert abs(float(result.threshold) - E2B_THRESHOLD) < 1e-12
+            st.session_state["result"] = result
+            st.session_state["result_key"] = file_key
+            st.session_state["mask_vis"] = colorize_mask(result.binary_full)
+            st.session_state["busy"] = False
+            progress.success("Analyse terminée. Voici votre résultat.")
+        except Exception as exc:
+            st.session_state["busy"] = False
+            progress.empty()
+            st.error(friendly_error(exc))
+            render_faq()
+            render_privacy()
+            return
+
+    if "result" not in st.session_state or st.session_state.get("result_key") != file_key:
+        render_faq()
+        render_privacy()
+        return
+
+    result = st.session_state["result"]
+    mask_vis = st.session_state["mask_vis"]
+
+    st.markdown("### Résultat de votre analyse")
+    st.markdown(
+        '<p class="muted">Les zones colorées représentent les régions que le système '
+        "identifie comme potentiellement anormales.</p>",
+        unsafe_allow_html=True,
+    )
+
+    m1, m2 = st.columns(2)
+    with m1:
+        st.markdown(
+            f"""
+<div class="metric-lite">
+  <div class="lab">Surface signalée</div>
+  <div class="val">{result.anomaly_pixel_pct:.1f}%</div>
+  <p class="muted" style="margin:0.35rem 0 0 0;font-size:0.88rem">
+  Estimation de la part de l’image mise en évidence — pas le pourcentage de route
+  dangereuse, ni une mesure de risque certifiée.</p>
+</div>
+""",
+            unsafe_allow_html=True,
+        )
+    with m2:
+        st.markdown(
+            """
+<div class="metric-lite">
+  <div class="lab">Statut</div>
+  <div class="val" style="font-size:1.25rem">Analyse prête</div>
+  <p class="muted" style="margin:0.35rem 0 0 0;font-size:0.88rem">
+  Vous pouvez comparer les vues et télécharger vos fichiers.</p>
+</div>
+""",
+            unsafe_allow_html=True,
         )
 
-    with tab_prob:
-        p1, p2 = st.columns(2)
-        with p1:
-            st.markdown(
-                '<div class="ra-panel"><div class="eyebrow">Heatmap</div>'
-                "<h4>Probabilités (taille d’origine)</h4></div>",
-                unsafe_allow_html=True,
-            )
-            st.image(heat, use_container_width=True)
-            st.caption("Carte partagée — l’exploration ne fait que re-seuiller.")
-        with p2:
-            st.markdown(
-                '<div class="ra-panel"><div class="eyebrow">Modèle</div>'
-                "<h4>Grille native 512×288</h4></div>",
-                unsafe_allow_html=True,
-            )
-            st.image(probability_heatmap_rgb(official.probability_map), use_container_width=True)
-            st.caption("Sortie sigmoid avant redimensionnement du masque.")
+    tab_res, tab_cmp, tab_dl, tab_adv = st.tabs(
+        ["Résultats", "Comparaison", "Téléchargements", "Options avancées"]
+    )
+
+    with tab_res:
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.markdown('<div class="panel-title">Image originale</div>', unsafe_allow_html=True)
+            st.image(result.original_rgb, use_container_width=True)
+        with c2:
+            st.markdown('<div class="panel-title">Zones détectées</div>', unsafe_allow_html=True)
+            st.image(mask_vis, use_container_width=True)
+        with c3:
+            st.markdown('<div class="panel-title">Visualisation superposée</div>', unsafe_allow_html=True)
+            st.image(result.overlay_rgb, use_container_width=True)
+
+        with st.expander("Voir en grand — image annotée"):
+            st.image(result.overlay_rgb, use_container_width=True)
+
+    with tab_cmp:
+        left, right = st.columns(2)
+        with left:
+            st.markdown('<div class="panel-title">Avant</div>', unsafe_allow_html=True)
+            st.image(result.original_rgb, use_container_width=True)
+        with right:
+            st.markdown('<div class="panel-title">Après</div>', unsafe_allow_html=True)
+            st.image(result.overlay_rgb, use_container_width=True)
 
     with tab_dl:
-        st.write("Exports **officiels** (seuil 0,55) pour le rapport ou la soutenance.")
+        st.write("Téléchargez vos fichiers pour les conserver ou les partager.")
         d1, d2, d3 = st.columns(3)
         with d1:
             st.download_button(
-                "Masque officiel",
-                data=encode_png_mask(official.binary_full),
-                file_name="roadanomaly_mask_official_0.55.png",
+                "Télécharger le masque",
+                data=encode_png_mask(result.binary_full),
+                file_name="roadanomaly_zones.png",
                 mime="image/png",
                 use_container_width=True,
-                key="dl_official_mask",
             )
         with d2:
             st.download_button(
-                "Superposition officielle",
-                data=encode_png_rgb(official.overlay_rgb),
-                file_name="roadanomaly_overlay_official_0.55.png",
+                "Télécharger l'image annotée",
+                data=encode_png_rgb(result.overlay_rgb),
+                file_name="roadanomaly_image_annotee.png",
                 mime="image/png",
                 use_container_width=True,
-                key="dl_official_overlay",
             )
         with d3:
-            st.download_button(
-                "Probabilités",
-                data=encode_png_probability(official.probability_full),
-                file_name="roadanomaly_probability.png",
-                mime="image/png",
-                use_container_width=True,
-                key="dl_official_prob",
-            )
+            with st.expander("Fichier avancé"):
+                st.download_button(
+                    "Télécharger la carte de probabilité",
+                    data=encode_png_probability(result.probability_full),
+                    file_name="roadanomaly_intensite.png",
+                    mime="image/png",
+                    use_container_width=True,
+                )
+
+    with tab_adv:
         st.caption(
-            "Les exports exploratoires sont disponibles dans l’onglet "
-            "« Exploration visuelle » et portent le libellé hors protocole."
+            "Section réservée à une exploration visuelle optionnelle. "
+            "Le résultat principal ci-dessus n’est pas modifié."
+        )
+        # Exploration kept but not prominent; import lazily to avoid cluttering main path.
+        from app_inference import (  # noqa: WPS433
+            EXPLORATION_LABEL,
+            EXPLORATION_THRESHOLD_MAX,
+            EXPLORATION_THRESHOLD_MIN,
+            derive_exploratory_view,
         )
 
-    render_limitations()
+        with st.expander("Mode exploratoire (optionnel)", expanded=False):
+            st.warning(EXPLORATION_LABEL)
+            thr = st.slider(
+                "Sensibilité d’affichage",
+                min_value=float(EXPLORATION_THRESHOLD_MIN),
+                max_value=float(EXPLORATION_THRESHOLD_MAX),
+                value=float(E2B_THRESHOLD),
+                step=0.05,
+            )
+            explore = derive_exploratory_view(result, thr)
+            # Official result must remain untouched.
+            assert abs(float(result.threshold) - E2B_THRESHOLD) < 1e-12
+            a, b = st.columns(2)
+            with a:
+                st.caption("Résultat principal (inchangé)")
+                st.image(mask_vis, use_container_width=True)
+            with b:
+                st.caption("Vue exploratoire")
+                st.image(colorize_mask(explore.binary_full), use_container_width=True)
+
+    st.markdown(
+        """
+<div class="disclaimer">
+Cette analyse constitue une aide visuelle expérimentale. Elle ne remplace pas une
+inspection humaine ni un système certifié de sécurité routière.
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+    render_faq()
+    render_privacy()
 
 
 if __name__ == "__main__":

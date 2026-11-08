@@ -38,6 +38,8 @@ ALLOWED_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp"}
 
 @dataclass(frozen=True)
 class InferenceResult:
+    """Official E2b prediction at the frozen operational threshold (0.55)."""
+
     original_rgb: np.ndarray
     model_rgb: np.ndarray
     probability_map: np.ndarray
@@ -50,6 +52,21 @@ class InferenceResult:
     threshold: float
     input_width: int
     input_height: int
+
+
+@dataclass(frozen=True)
+class ExplorationView:
+    """Visual-only binary views derived from an existing probability map.
+
+    Not a validated scientific result. Must never replace InferenceResult.
+    """
+
+    threshold: float
+    binary_mask: np.ndarray
+    binary_full: np.ndarray
+    overlay_rgb: np.ndarray
+    anomaly_pixel_pct: float
+    label: str = "Seuil exploratoire — hors protocole scientifique"
 
 
 def project_root() -> Path:
@@ -216,15 +233,31 @@ def resize_probability_bilinear(probs: np.ndarray, width: int, height: int) -> n
     return np.asarray(resized, dtype=np.float32) / 255.0
 
 
-def predict_e2b(
-    model: Any,
-    image_rgb: np.ndarray,
+EXPLORATION_LABEL = "Seuil exploratoire — hors protocole scientifique"
+EXPLORATION_THRESHOLD_MIN = 0.10
+EXPLORATION_THRESHOLD_MAX = 0.90
+
+
+def _threshold_probability_map(
+    probability_map: np.ndarray,
     *,
-    threshold: float = E2B_THRESHOLD,
-) -> InferenceResult:
-    if abs(float(threshold) - E2B_THRESHOLD) > 1e-9:
-        # Allow explicit override only for unit tests; production UI must pass freeze value.
-        pass
+    threshold: float,
+    original_hw: tuple[int, int],
+) -> tuple[np.ndarray, np.ndarray]:
+    """Threshold at model resolution, then nearest-neighbour resize to original HxW."""
+    binary = threshold_probabilities(probability_map, float(threshold)).astype(np.uint8)
+    orig_h, orig_w = original_hw
+    binary_full = resize_mask_nearest(binary, orig_w, orig_h)
+    binary_full = (binary_full > 0).astype(np.uint8)
+    return binary, binary_full
+
+
+def predict_e2b(model: Any, image_rgb: np.ndarray) -> InferenceResult:
+    """Run E2b once and produce the **official** prediction at frozen threshold 0.55.
+
+    The operational threshold is hard-coded to ``E2B_THRESHOLD``; callers cannot
+    override it. Exploratory thresholds must use ``derive_exploratory_view``.
+    """
     orig_h, orig_w = image_rgb.shape[:2]
     batch, model_rgb = preprocess_for_e2b(image_rgb)
     raw = model.predict(batch, verbose=0)
@@ -245,14 +278,11 @@ def predict_e2b(
             f"Probabilités hors [0,1] (min={probs.min():.4f}, max={probs.max():.4f})."
         )
     probs = np.clip(probs, 0.0, 1.0)
-    binary = threshold_probabilities(probs, threshold).astype(np.uint8)
-    binary_full = resize_mask_nearest(binary, orig_w, orig_h)
-    # resize_mask_nearest remaps labels; ensure {0,1}
-    binary_full = (binary_full > 0).astype(np.uint8)
+    binary, binary_full = _threshold_probability_map(
+        probs, threshold=E2B_THRESHOLD, original_hw=(orig_h, orig_w)
+    )
     prob_full = resize_probability_bilinear(probs, orig_w, orig_h)
     overlay = make_overlay(image_rgb, binary_full)
-    anomaly_pct = float(binary_full.mean() * 100.0)
-    mean_prob = float(probs.mean())
     return InferenceResult(
         original_rgb=image_rgb,
         model_rgb=model_rgb,
@@ -261,11 +291,42 @@ def predict_e2b(
         probability_full=prob_full,
         binary_full=binary_full,
         overlay_rgb=overlay,
-        anomaly_pixel_pct=anomaly_pct,
-        mean_anomaly_probability=mean_prob,
-        threshold=float(threshold),
+        anomaly_pixel_pct=float(binary_full.mean() * 100.0),
+        mean_anomaly_probability=float(probs.mean()),
+        threshold=float(E2B_THRESHOLD),
         input_width=E2B_INPUT_WIDTH,
         input_height=E2B_INPUT_HEIGHT,
+    )
+
+
+def derive_exploratory_view(
+    official: InferenceResult,
+    exploration_threshold: float,
+) -> ExplorationView:
+    """Re-threshold an existing official probability map for visual exploration only.
+
+    Does not run the model again and does not mutate ``official``.
+    """
+    thr = float(exploration_threshold)
+    if thr < EXPLORATION_THRESHOLD_MIN or thr > EXPLORATION_THRESHOLD_MAX:
+        raise ValueError(
+            f"Seuil exploratoire hors plage "
+            f"[{EXPLORATION_THRESHOLD_MIN}, {EXPLORATION_THRESHOLD_MAX}]: {thr}"
+        )
+    orig_h, orig_w = official.original_rgb.shape[:2]
+    # Defensive copy so exploration cannot alias/mutate official arrays.
+    probs = np.array(official.probability_map, copy=True)
+    binary, binary_full = _threshold_probability_map(
+        probs, threshold=thr, original_hw=(orig_h, orig_w)
+    )
+    overlay = make_overlay(official.original_rgb, binary_full)
+    return ExplorationView(
+        threshold=thr,
+        binary_mask=binary,
+        binary_full=binary_full,
+        overlay_rgb=overlay,
+        anomaly_pixel_pct=float(binary_full.mean() * 100.0),
+        label=EXPLORATION_LABEL,
     )
 
 

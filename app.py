@@ -10,6 +10,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import numpy as np
 import streamlit as st
 
 ROOT = Path(__file__).resolve().parent
@@ -23,8 +24,12 @@ from app_inference import (  # noqa: E402
     E2B_INPUT_HEIGHT,
     E2B_INPUT_WIDTH,
     E2B_THRESHOLD,
+    EXPLORATION_LABEL,
+    EXPLORATION_THRESHOLD_MAX,
+    EXPLORATION_THRESHOLD_MIN,
     DEFAULT_RELATIVE_CHECKPOINT,
     colorize_mask,
+    derive_exploratory_view,
     encode_png_mask,
     encode_png_probability,
     encode_png_rgb,
@@ -216,6 +221,24 @@ h1, h2, h3, .ra-title {
   color: #3f3a34;
   line-height: 1.5;
 }
+.ra-explore {
+  background: #fffdf5;
+  border: 1px dashed #c9a227;
+  border-radius: 14px;
+  padding: 1rem 1.1rem 1.15rem;
+  margin-top: 0.35rem;
+}
+.ra-explore h4 {
+  margin: 0 0 0.35rem 0;
+  font-family: "Fraunces", Georgia, serif;
+  color: #7a5b00;
+}
+.ra-explore p {
+  margin: 0 0 0.75rem 0;
+  color: #6b5a2a;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
 .ra-legend {
   display: flex;
   gap: 1rem;
@@ -403,7 +426,7 @@ def main() -> None:
                 return
             with st.spinner("Inférence E2b en cours…"):
                 try:
-                    result = predict_e2b(model, image, threshold=E2B_THRESHOLD)
+                    result = predict_e2b(model, image)
                 except Exception as exc:
                     st.error(f"Échec de la prédiction : {type(exc).__name__}: {exc}")
                     return
@@ -417,14 +440,25 @@ def main() -> None:
         render_limitations()
         return
 
+    # Official artefacts are frozen after inference; exploration never overwrites them.
+    official = result
     mask_vis = st.session_state["ra_mask_vis"]
     heat = st.session_state["ra_heat"]
+    assert abs(float(official.threshold) - E2B_THRESHOLD) < 1e-12
 
-    st.markdown('<h3 class="ra-section">Tableau de bord</h3>', unsafe_allow_html=True)
+    st.markdown(
+        '<h3 class="ra-section">Prédiction officielle (protocole scientifique)</h3>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f'<p class="ra-lead">Modèle E2b · seuil figé <strong>{E2B_THRESHOLD:.2f}</strong> · '
+        "non retuné sur cette image · résultats de test Stage 5 inchangés.</p>",
+        unsafe_allow_html=True,
+    )
     st.markdown(
         """
 <div class="ra-legend">
-  <span><span class="ra-swatch" style="background:#e85d2a"></span>Anomalie prédite</span>
+  <span><span class="ra-swatch" style="background:#e85d2a"></span>Anomalie prédite (officiel)</span>
   <span><span class="ra-swatch" style="background:#1c2430"></span>Fond</span>
   <span><span class="ra-swatch" style="background:#ffe8b3"></span>Contour du masque</span>
 </div>
@@ -435,23 +469,34 @@ def main() -> None:
     m1, m2, m3, m4 = st.columns(4)
     with m1:
         metric_card(
-            "Pixels anomalie",
-            f"{result.anomaly_pixel_pct:.2f}%",
-            f"Après seuil {result.threshold:.2f}",
+            "Pixels anomalie (officiel)",
+            f"{official.anomaly_pixel_pct:.2f}%",
+            f"Seuil figé {official.threshold:.2f}",
         )
     with m2:
         metric_card(
             "Proba. moyenne",
-            f"{result.mean_anomaly_probability:.3f}",
+            f"{official.mean_anomaly_probability:.3f}",
             "Sortie modèle — non calibrée",
         )
     with m3:
-        metric_card("Proba. max", f"{float(result.probability_map.max()):.3f}", "Sur la grille 512×288")
+        metric_card(
+            "Proba. max",
+            f"{float(official.probability_map.max()):.3f}",
+            "Sur la grille 512×288",
+        )
     with m4:
-        metric_card("Seuil figé", f"{result.threshold:.2f}", "Choisi sur validation")
+        metric_card("Seuil figé", f"{official.threshold:.2f}", "Choisi sur validation")
 
     st.write("")
-    tab_cmp, tab_prob, tab_dl = st.tabs(["Comparaison visuelle", "Carte de probabilités", "Téléchargements"])
+    tab_cmp, tab_explore, tab_prob, tab_dl = st.tabs(
+        [
+            "Comparaison officielle",
+            "Exploration visuelle",
+            "Carte de probabilités",
+            "Téléchargements",
+        ]
+    )
 
     with tab_cmp:
         col_a, col_b, col_c = st.columns(3)
@@ -460,67 +505,160 @@ def main() -> None:
                 '<div class="ra-panel"><div class="eyebrow">01</div><h4>Image originale</h4></div>',
                 unsafe_allow_html=True,
             )
-            st.image(result.original_rgb, use_container_width=True)
+            st.image(official.original_rgb, use_container_width=True)
             st.caption("Résolution d’origine, non retouchée.")
         with col_b:
             st.markdown(
-                '<div class="ra-panel"><div class="eyebrow">02</div><h4>Masque binaire</h4></div>',
+                '<div class="ra-panel"><div class="eyebrow">02</div>'
+                "<h4>Masque officiel (0,55)</h4></div>",
                 unsafe_allow_html=True,
             )
             st.image(mask_vis, use_container_width=True)
             st.caption("Orange = anomalie (≥ 0,55), fond asphalté.")
         with col_c:
             st.markdown(
-                '<div class="ra-panel"><div class="eyebrow">03</div><h4>Superposition</h4></div>',
+                '<div class="ra-panel"><div class="eyebrow">03</div>'
+                "<h4>Superposition officielle</h4></div>",
                 unsafe_allow_html=True,
             )
-            st.image(result.overlay_rgb, use_container_width=True)
-            st.caption("Fill + contour clair pour lire la localisation.")
+            st.image(official.overlay_rgb, use_container_width=True)
+            st.caption("Prédiction scientifique de référence pour cette image.")
+
+    with tab_explore:
+        st.markdown(
+            f"""
+<div class="ra-explore">
+  <h4>{EXPLORATION_LABEL}</h4>
+  <p>
+    Ce curseur ne relance <strong>pas</strong> le modèle et ne modifie <strong>pas</strong>
+    la prédiction officielle (seuil 0,55). Il re-binarise uniquement la carte de
+    probabilités déjà calculée, pour l’interprétation visuelle.
+    <strong>Ce n’est pas un résultat de test validé</strong> et ne peut pas servir
+    à retuner le protocole.
+  </p>
+</div>
+""",
+            unsafe_allow_html=True,
+        )
+        explore_thr = st.slider(
+            EXPLORATION_LABEL,
+            min_value=float(EXPLORATION_THRESHOLD_MIN),
+            max_value=float(EXPLORATION_THRESHOLD_MAX),
+            value=float(E2B_THRESHOLD),
+            step=0.05,
+            help="Hors protocole scientifique — visualisation seulement.",
+        )
+        explore = derive_exploratory_view(official, explore_thr)
+        # Prove UI path cannot mutate official session artefacts.
+        assert np.array_equal(st.session_state["ra_result"].binary_full, official.binary_full)
+        assert abs(float(st.session_state["ra_result"].threshold) - E2B_THRESHOLD) < 1e-12
+
+        e0, e1, e2 = st.columns(3)
+        with e0:
+            metric_card(
+                "Seuil exploratoire",
+                f"{explore.threshold:.2f}",
+                explore.label,
+            )
+        with e1:
+            metric_card(
+                "Pixels (exploratoire)",
+                f"{explore.anomaly_pixel_pct:.2f}%",
+                "Recalculé sans nouvelle inférence",
+            )
+        with e2:
+            metric_card(
+                "Pixels (officiel, inchangé)",
+                f"{official.anomaly_pixel_pct:.2f}%",
+                f"Toujours au seuil {E2B_THRESHOLD:.2f}",
+            )
+
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown(
+                '<div class="ra-panel"><div class="eyebrow">Officiel</div>'
+                "<h4>Masque @ 0,55 (référence)</h4></div>",
+                unsafe_allow_html=True,
+            )
+            st.image(mask_vis, use_container_width=True)
+            st.caption("Ne change jamais avec le curseur.")
+        with c2:
+            st.markdown(
+                f'<div class="ra-panel"><div class="eyebrow">Exploratoire</div>'
+                f"<h4>Masque @ {explore.threshold:.2f}</h4></div>",
+                unsafe_allow_html=True,
+            )
+            st.image(colorize_mask(explore.binary_full), use_container_width=True)
+            st.caption(EXPLORATION_LABEL)
+
+        st.markdown(
+            f'<div class="ra-panel"><div class="eyebrow">Exploratoire</div>'
+            f"<h4>Superposition @ {explore.threshold:.2f}</h4></div>",
+            unsafe_allow_html=True,
+        )
+        st.image(explore.overlay_rgb, use_container_width=True)
+        st.download_button(
+            f"Télécharger masque exploratoire (@ {explore.threshold:.2f})",
+            data=encode_png_mask(explore.binary_full),
+            file_name=f"roadanomaly_mask_exploratory_{explore.threshold:.2f}.png",
+            mime="image/png",
+            use_container_width=True,
+            key="dl_explore_mask",
+        )
 
     with tab_prob:
         p1, p2 = st.columns(2)
         with p1:
             st.markdown(
-                '<div class="ra-panel"><div class="eyebrow">Heatmap</div><h4>Probabilités (taille d’origine)</h4></div>',
+                '<div class="ra-panel"><div class="eyebrow">Heatmap</div>'
+                "<h4>Probabilités (taille d’origine)</h4></div>",
                 unsafe_allow_html=True,
             )
             st.image(heat, use_container_width=True)
-            st.caption("Affichage uniquement — le seuil est appliqué à 512×288.")
+            st.caption("Carte partagée — l’exploration ne fait que re-seuiller.")
         with p2:
             st.markdown(
-                '<div class="ra-panel"><div class="eyebrow">Modèle</div><h4>Grille native 512×288</h4></div>',
+                '<div class="ra-panel"><div class="eyebrow">Modèle</div>'
+                "<h4>Grille native 512×288</h4></div>",
                 unsafe_allow_html=True,
             )
-            st.image(probability_heatmap_rgb(result.probability_map), use_container_width=True)
+            st.image(probability_heatmap_rgb(official.probability_map), use_container_width=True)
             st.caption("Sortie sigmoid avant redimensionnement du masque.")
 
     with tab_dl:
-        st.write("Exports PNG pour le rapport ou la soutenance.")
+        st.write("Exports **officiels** (seuil 0,55) pour le rapport ou la soutenance.")
         d1, d2, d3 = st.columns(3)
         with d1:
             st.download_button(
-                "Masque binaire",
-                data=encode_png_mask(result.binary_full),
-                file_name="roadanomaly_mask.png",
+                "Masque officiel",
+                data=encode_png_mask(official.binary_full),
+                file_name="roadanomaly_mask_official_0.55.png",
                 mime="image/png",
                 use_container_width=True,
+                key="dl_official_mask",
             )
         with d2:
             st.download_button(
-                "Superposition",
-                data=encode_png_rgb(result.overlay_rgb),
-                file_name="roadanomaly_overlay.png",
+                "Superposition officielle",
+                data=encode_png_rgb(official.overlay_rgb),
+                file_name="roadanomaly_overlay_official_0.55.png",
                 mime="image/png",
                 use_container_width=True,
+                key="dl_official_overlay",
             )
         with d3:
             st.download_button(
                 "Probabilités",
-                data=encode_png_probability(result.probability_full),
+                data=encode_png_probability(official.probability_full),
                 file_name="roadanomaly_probability.png",
                 mime="image/png",
                 use_container_width=True,
+                key="dl_official_prob",
             )
+        st.caption(
+            "Les exports exploratoires sont disponibles dans l’onglet "
+            "« Exploration visuelle » et portent le libellé hors protocole."
+        )
 
     render_limitations()
 

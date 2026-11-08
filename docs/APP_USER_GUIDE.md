@@ -41,11 +41,25 @@ Puis ouvrez l’URL locale affichée (souvent `http://localhost:8501`).
 
 1. Chargez une image JPG/JPEG/PNG.  
 2. Cliquez sur **Lancer la prédiction E2b**.  
-3. Consultez l’image, le masque, la superposition et les métriques.  
-4. Téléchargez les PNG si besoin.
+3. Consultez d’abord l’onglet **Comparaison officielle** (seuil figé **0,55**).  
+4. (Optionnel) Ouvrez **Exploration visuelle** pour un seuil d’affichage différent.  
+5. Téléchargez les PNG **officiels** pour le rapport.
 
-Le seuil **0,55** et le modèle **E2b** sont figés (sélection validation). Ne les changez pas pour « améliorer » une démo.
+## Prédiction officielle vs exploration visuelle
+
+| | Officiel | Exploratoire |
+| --- | --- | --- |
+| Seuil | **0,55** figé (validation) | Curseur 0,10–0,90 |
+| Inférence modèle | Une fois | **Aucune** (re-seuillage seulement) |
+| Statut scientifique | Référence protocole | **Hors protocole** |
+| Peut retuner le projet ? | Non | Non |
+| Libellé UI | Prédiction officielle | *Seuil exploratoire — hors protocole scientifique* |
+
+- La prédiction **officielle** est toujours produite au seuil **0,55**.  
+- Le curseur exploratoire **ne relance pas** E2b et **n’écrase jamais** le masque / les métriques officiels.  
+- Les vues exploratoires **ne sont pas** des résultats de test validés (Stage 5).  
+- Ne citez que les sorties **officielles** dans le rapport ou la soutenance.
 
 ## Limites
 
-Prototype académique sur un petit jeu (60 images). Pas un système de conduite autonome validé. La probabilité moyenne n’est pas une confiance calibrée.
+Prototype académique sur un petit jeu (60 images). Pas un système de conduite autonome validé. La probabilité moyenne n’est pas une confiance calibrée. Un masque exploratoire plus « complet » sur une image donnée n’autorise pas à changer le seuil scientifique.

@@ -1,13 +1,14 @@
 # RoadAnomaly — Project Status
 
-**Last verified:** 2026-11-08 (Stage 1 readiness)  
+**Last verified:** 2026-11-08 (Stage 2 push; Stage 3 blocked on Colab UI control)  
 **Branch:** `main`  
-**HEAD:** `337cad06211cc09bb32d80fbb897cde15d21f777`  
+**HEAD:** `d7cc9e4ef2b67acafd7431b2987eaa397c006e13`  
+**Phase 4 implementation commit:** `9e734a1d0af48342f92c084216b1dd1d4c254741`  
 **Remote:** `https://github.com/AhmedChatti/RoadAnomaly.git` (private)
 
 ## One-line status
 
-Stage 1 complete: Phase 4 implementation is locally ready; Phase 3 freeze audit **PASS** after documented qualitative regeneration; Colab infra green. Phase 4 remains **uncommitted / untrained**. Next gated step is Stage 2 commit (approval required), then Stage 3 training approval.
+**Stage 2 COMPLETE** (Phase 4 code pushed). **Stage 3 BLOCKED:** Cursor cannot reliably save T4 runtime settings / Run-all in the Colab browser UI; training notebook is prepared with dual auth + pinned SHA and needs a one-click human Run-all on Tesla T4.
 
 ## Phase completion
 
@@ -16,7 +17,7 @@ Stage 1 complete: Phase 4 implementation is locally ready; Phase 3 freeze audit 
 | Phase 1 protocol / split | FROZEN / VERIFIED | Split SHA `9a01c05c…04585c78`; `configs/default.json` untouched |
 | Phase 2 pipeline | FROZEN / VERIFIED | Unit tests OK; original masks untouched by loader policy |
 | Phase 3 E0 / E1 | FROZEN / AUDIT PASS | Canonical E1 SHA OK; qualitative **regenerated** (documented); E1_1501 weights unavailable (non-blocking) |
-| Phase 4 implementation | READY / NOT EXECUTED | Stage 1 readiness report green; still uncommitted; no ImageNet / no train |
+| Phase 4 implementation | PUSHED / NOT TRAINED | On `main` @ `9e734a1` (+ auth notebook `d7cc9e4`); E2a/E2b not executed yet |
 | Final test evaluation | NOT STARTED | Test split hard-blocked |
 | Final notebook / FR report / slides | NOT STARTED / OUTLINES ONLY | Docs 04–06 exist; final deliverables absent |
 | Drive / Colab connectivity | COLAB PATH VERIFIED | User readiness JSON 2026-11-08T16:43:15Z; Cursor→Drive still unavailable |
@@ -93,13 +94,11 @@ Saved on Drive: `experiments/metadata/colab_environment_readiness.json`
 
 ## Remaining blockers before Stage 3 training
 
-1. ~~Stage 1 readiness / Phase 3 gaps~~ — cleared.
+1. ~~Stage 1–2 / Phase 4 push~~ — cleared (`9e734a1`, `d7cc9e4`).
 2. ~~Colab Drive/GPU/dataset/E1~~ — cleared by readiness JSON.
-3. **No Cursor Drive sync** — still true; Colab is the GPU/Drive worker.
-4. **Local free disk low** — training must stay on Colab+Drive.
-5. Phase 4 sources are **uncommitted**; Stage 2 commit + push + Colab pull required.
-6. Phase 4 training / ImageNet still need **explicit user approval** + both authorize flags.
+3. **Colab Run-all** — Cursor browser cannot finish T4 Save + Run-all; human must start training once.
+4. Local free disk low — keep training on Colab+Drive.
 
-## Next approved stage
+## Next action
 
-Await confirmation to start **Stage 2** (review diff + prepare/commit Phase 4 sources — push still separate).
+User runs Colab training notebook (auth already `True`, SHA pinned to `9e734a1`). After E2a/E2b finish, paste checkpoint paths + thresholds so Stages 4–9 can continue.

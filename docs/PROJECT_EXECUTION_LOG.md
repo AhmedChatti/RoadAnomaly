@@ -202,3 +202,23 @@ STATUS: PASS (0 issue(s)); historical note for missing E1_1501 weights.
 ### Next action
 
 Await user confirmation for **Stage 2** (diff review + commit preparation; push separately).
+
+---
+
+## 2026-11-08 — STAGE 2 — Phase 4 commit + push
+
+**Stage status:** COMPLETED.
+
+### Actions
+
+- Full test suite OK; reviewed Phase 4 gates.
+- Committed and pushed Phase 4 implementation: `9e734a1d0af48342f92c084216b1dd1d4c254741`.
+- Follow-up commit enabling Colab training notebook auth + pinned SHA: `d7cc9e4ef2b67acafd7431b2987eaa397c006e13`.
+- Opened Colab notebook from GitHub; selected T4 GPU in dialog; **could not apply Save / Run-all reliably via browser automation**.
+
+### Next action
+
+**URGENT USER STEP for Stage 3:** open  
+`https://colab.research.google.com/github/AhmedChatti/RoadAnomaly/blob/main/notebooks/02_phase4_training_colab.ipynb`  
+→ Runtime → Change runtime type → **T4 GPU** → Save → **Runtime → Run all**.  
+When finished, paste E2a/E2b checkpoint paths + selected thresholds (or the Drive metadata JSON). Do not re-tune.

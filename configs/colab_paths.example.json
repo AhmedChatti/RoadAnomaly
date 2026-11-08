@@ -1,0 +1,17 @@
+{
+  "drive_root": "/content/drive/MyDrive/RoadAnomaly",
+  "dataset_original": "/content/drive/MyDrive/RoadAnomaly/dataset/original",
+  "frames_dir": "/content/drive/MyDrive/RoadAnomaly/dataset/original/frames",
+  "checkpoints_root": "/content/drive/MyDrive/RoadAnomaly/checkpoints",
+  "experiments_root": "/content/drive/MyDrive/RoadAnomaly/experiments",
+  "backups_root": "/content/drive/MyDrive/RoadAnomaly/backups",
+  "github_repo_url": "https://github.com/AhmedChatti/RoadAnomaly.git",
+  "github_branch": "main",
+  "github_commit_sha": "REPLACE_WITH_APPROVED_COMMIT_SHA",
+  "colab_clone_dir": "/content/RoadAnomaly",
+  "notes": [
+    "Copy this file locally if needed; do not put secrets in it.",
+    "Private clone authentication must use Colab Secrets (e.g. GITHUB_TOKEN), never hardcoded tokens.",
+    "Symlink or set ROADANOMALY_FRAMES_DIR to the Drive frames directory after mounting."
+  ]
+}

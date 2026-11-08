@@ -21,21 +21,29 @@ env/
 Thumbs.db
 desktop.ini
 
-# Secrets / local env
+# Secrets / local env / credentials (never commit)
 .env
 .env.*
+*.pem
+*token*.json
+*credentials*.json
+client_secret*.json
+.colab_secrets/
 
-# Original dataset images (large; keep locally, do not push)
+# Original dataset images and LabelGrab annotation folders (large; keep locally / Drive)
 frames/
 
-# Generated processed images (large; regenerable from scripts with care)
+# Generated processed images (large; regenerable; split_manifest.csv stays tracked)
 data/processed/train/
 data/processed/val/
 data/processed/test/
 
-# Model weights and experiment binaries
+# Model weights and experiment binaries (persist on Drive, not GitHub)
 checkpoints/*
 !checkpoints/.gitkeep
+# Re-include experiment subfolders so FREEZE markers can be tracked; *.keras stays ignored globally.
+!checkpoints/*/
+!checkpoints/*/FREEZE.txt
 *.h5
 *.keras
 *.hdf5
@@ -46,11 +54,16 @@ checkpoints/*
 *.pth
 saved_model/
 
-# Experiment outputs that can be large
+# Local / Drive mirror backups of weights (never push binaries)
+backups/*
+!backups/README.md
+
+# Experiment figures are large; store on Drive. Keep lightweight CSV tables in git.
 experiments/figures/*
 !experiments/figures/.gitkeep
 experiments/results/*
 !experiments/results/.gitkeep
+!experiments/results/*.csv
 
 # Keep metadata templates and filled JSON logs
 !experiments/metadata/
@@ -58,10 +71,14 @@ experiments/metadata/*
 !experiments/metadata/_template.json
 !experiments/metadata/*.json
 
-# Caches / Colab noise
+# Caches / Colab / TensorFlow noise
 .cache/
 .tensorflow/
 *.log
+content/
+sample_data/
+.ipynb_checkpoints/
+__pycache__/
 
 # Local copies of external papers (prefer citing the Open Access URL)
 papers/

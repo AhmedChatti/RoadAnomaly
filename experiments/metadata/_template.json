@@ -1,20 +1,30 @@
 {
   "experiment_id": "E2a_YYYYMMDD_HHMM",
+  "created_at_utc": null,
+  "git_commit_sha": "REPLACE_WITH_APPROVED_COMMIT_SHA",
+  "dataset_fingerprint": {
+    "frames_dir": null,
+    "n_webp": null,
+    "n_label_dirs": null,
+    "frame_list_sha256": null
+  },
   "model_name": "unet_mobilenetv2_frozen",
   "architecture": "U-Net with MobileNetV2 encoder",
   "input_height": 288,
   "input_width": 512,
   "split_manifest": "data/processed/split_manifest.csv",
-  "split_manifest_sha256": "REPLACE_AFTER_HASHING",
+  "split_manifest_sha256": "9a01c05cfc7d33783c4f64b91b0ae423a4d3ad57439fd71ffc029a8f04585c78",
   "seed": 42,
   "optimizer": "adam",
   "learning_rate": 0.001,
   "batch_size": 4,
   "epochs_planned": 80,
   "epochs_run": null,
-  "loss": "binary_crossentropy_plus_dice",
+  "loss": "weighted_bce + soft_dice",
+  "hyperparameters": {},
   "metrics_monitored": ["precision", "recall", "f1", "iou", "dice", "accuracy"],
   "augmentation": {
+    "enabled_on_split": "train",
     "horizontal_flip": true,
     "vertical_flip": false,
     "rotation_degrees_max": 8,
@@ -29,9 +39,14 @@
   "threshold_selection": {
     "split": "val",
     "metric": "mean_dice",
-    "value": null
+    "value": null,
+    "default_during_training": 0.5
   },
-  "hardware": "google_colab_gpu_or_local_cpu",
+  "hardware": "google_colab_gpu",
+  "gpu": {
+    "gpu_available": null,
+    "gpu_model": null
+  },
   "software_versions": {
     "python": null,
     "tensorflow": null,
@@ -41,6 +56,15 @@
   },
   "duration_seconds": null,
   "checkpoint_path": null,
+  "checkpoint_sha256": null,
+  "history": {},
+  "validation_metrics": {},
+  "artefact_locations": {
+    "metadata": null,
+    "results": null,
+    "figures": null,
+    "checkpoint": null
+  },
   "notes": "",
   "status": "planned"
 }

@@ -64,12 +64,16 @@ experiments/figures/*
 experiments/results/*
 !experiments/results/.gitkeep
 !experiments/results/*.csv
+!experiments/results/phase4/
+!experiments/results/phase4/*.csv
 
 # Keep metadata templates and filled JSON logs
 !experiments/metadata/
 experiments/metadata/*
 !experiments/metadata/_template.json
 !experiments/metadata/*.json
+!experiments/metadata/phase4/
+!experiments/metadata/phase4/*.json
 
 # Caches / Colab / TensorFlow noise
 .cache/

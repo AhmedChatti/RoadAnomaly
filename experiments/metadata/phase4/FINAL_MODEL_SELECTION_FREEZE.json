@@ -1,0 +1,51 @@
+{
+  "frozen_at_utc": "2026-11-08T17:45:00+00:00",
+  "purpose": "Freeze validation-based model and threshold choices before any test-set access (Stage 5).",
+  "split_manifest_sha256": "9a01c05cfc7d33783c4f64b91b0ae423a4d3ad57439fd71ffc029a8f04585c78",
+  "git_commit_sha_training": "9e734a1d0af48342f92c084216b1dd1d4c254741",
+  "selection_split": "val",
+  "selection_metric": "mean_per_image_mean_dice",
+  "primary_model": {
+    "experiment_id": "E2b_unet_mobilenetv2_finetune_20261108_1721",
+    "reason": "Highest validation mean Dice among E0/E1/E2a/E2b",
+    "operational_threshold": 0.55,
+    "training_threshold": 0.5,
+    "checkpoint_path_drive": "/content/drive/MyDrive/RoadAnomaly/checkpoints/phase4/E2b_unet_mobilenetv2_finetune_20261108_1721/best.keras",
+    "checkpoint_sha256": "280170dc64347b0b4cc8ce3af9be40dec4ac3733b27d1abeb620cc0c8e88e432"
+  },
+  "models_to_evaluate_once_on_test": [
+    {
+      "experiment_id": "E0_all_background",
+      "operational_threshold": 0.5,
+      "normalize": "scale_0_1",
+      "notes": "trivial baseline; no checkpoint"
+    },
+    {
+      "experiment_id": "E1_cnn_scratch_20261108_1510",
+      "operational_threshold": 0.35,
+      "normalize": "scale_0_1",
+      "checkpoint_path_drive": "/content/drive/MyDrive/RoadAnomaly/checkpoints/phase3/E1_cnn_scratch_20261108_1510/best.keras",
+      "checkpoint_sha256": "567bde326ee5b776bc34132b23012543b35f195ec8d60229d01196eb1a0fb234"
+    },
+    {
+      "experiment_id": "E2a_unet_mobilenetv2_frozen_20261108_1714",
+      "operational_threshold": 0.15,
+      "normalize": "mobilenet_v2",
+      "checkpoint_path_drive": "/content/drive/MyDrive/RoadAnomaly/checkpoints/phase4/E2a_unet_mobilenetv2_frozen_20261108_1714/best.keras",
+      "checkpoint_sha256": "428845e976a8f4773ce929ec66520227b49928142d4c34e38974af671f38b080"
+    },
+    {
+      "experiment_id": "E2b_unet_mobilenetv2_finetune_20261108_1721",
+      "operational_threshold": 0.55,
+      "normalize": "mobilenet_v2",
+      "checkpoint_path_drive": "/content/drive/MyDrive/RoadAnomaly/checkpoints/phase4/E2b_unet_mobilenetv2_finetune_20261108_1721/best.keras",
+      "checkpoint_sha256": "280170dc64347b0b4cc8ce3af9be40dec4ac3733b27d1abeb620cc0c8e88e432"
+    }
+  ],
+  "rules": [
+    "Do not retune thresholds on test.",
+    "Do not change model selection using test metrics.",
+    "Evaluate each listed model at most once on test under this freeze.",
+    "allow_test=True only inside the Stage 5 script/notebook."
+  ]
+}

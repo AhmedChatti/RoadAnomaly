@@ -154,12 +154,28 @@ def preprocess_for_e2b(image_rgb: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return batch, model_rgb
 
 
+def _mask_edges(binary_mask: np.ndarray) -> np.ndarray:
+    """Simple 4-neighbour edge map for contour overlay (no SciPy dependency)."""
+    mask = binary_mask.astype(bool)
+    up = np.zeros_like(mask)
+    down = np.zeros_like(mask)
+    left = np.zeros_like(mask)
+    right = np.zeros_like(mask)
+    up[1:, :] = mask[:-1, :]
+    down[:-1, :] = mask[1:, :]
+    left[:, 1:] = mask[:, :-1]
+    right[:, :-1] = mask[:, 1:]
+    return mask & ~(up & down & left & right)
+
+
 def make_overlay(
     image_rgb: np.ndarray,
     binary_mask: np.ndarray,
     *,
-    color: tuple[int, int, int] = (220, 50, 50),
-    alpha: float = 0.45,
+    color: tuple[int, int, int] = (232, 93, 42),
+    alpha: float = 0.42,
+    draw_contour: bool = True,
+    contour_color: tuple[int, int, int] = (255, 236, 179),
 ) -> np.ndarray:
     if image_rgb.shape[:2] != binary_mask.shape[:2]:
         raise ValueError("Overlay: image and mask spatial sizes must match")
@@ -167,7 +183,29 @@ def make_overlay(
     mask = binary_mask.astype(bool)
     color_arr = np.array(color, dtype=np.float32)
     out[mask] = (1.0 - alpha) * out[mask] + alpha * color_arr
+    if draw_contour and mask.any():
+        edges = _mask_edges(binary_mask.astype(np.uint8))
+        out[edges] = np.array(contour_color, dtype=np.float32)
     return np.clip(out, 0, 255).astype(np.uint8)
+
+
+def colorize_mask(binary_mask: np.ndarray) -> np.ndarray:
+    """Readable binary mask visualization (dark asphalt + amber anomaly)."""
+    h, w = binary_mask.shape[:2]
+    canvas = np.zeros((h, w, 3), dtype=np.uint8)
+    canvas[:] = (28, 32, 38)
+    canvas[binary_mask.astype(bool)] = (232, 93, 42)
+    return canvas
+
+
+def probability_heatmap_rgb(probs: np.ndarray) -> np.ndarray:
+    """Map [0,1] probabilities to a warm amber heatmap for display only."""
+    p = np.clip(probs.astype(np.float32), 0.0, 1.0)
+    # Dark → amber → near-white highlights (no matplotlib colormap dependency).
+    r = (40 + 215 * p).round().astype(np.uint8)
+    g = (36 + 90 * p).round().astype(np.uint8)
+    b = (42 + 20 * (1.0 - p)).round().astype(np.uint8)
+    return np.stack([r, g, b], axis=-1)
 
 
 def resize_probability_bilinear(probs: np.ndarray, width: int, height: int) -> np.ndarray:

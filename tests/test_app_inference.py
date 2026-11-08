@@ -15,6 +15,7 @@ from app_inference import (  # noqa: E402
     E2B_INPUT_HEIGHT,
     E2B_INPUT_WIDTH,
     E2B_THRESHOLD,
+    colorize_mask,
     encode_png_mask,
     encode_png_probability,
     encode_png_rgb,
@@ -22,6 +23,7 @@ from app_inference import (  # noqa: E402
     make_overlay,
     predict_e2b,
     preprocess_for_e2b,
+    probability_heatmap_rgb,
     resize_probability_bilinear,
 )
 from metrics import threshold_probabilities  # noqa: E402
@@ -57,6 +59,9 @@ class AppInferenceTests(unittest.TestCase):
         mask[5:15, 5:15] = 1
         overlay = make_overlay(image, mask)
         self.assertEqual(overlay.shape, image.shape)
+        self.assertEqual(colorize_mask(mask).shape, (32, 48, 3))
+        heat = probability_heatmap_rgb(np.linspace(0, 1, 32 * 48, dtype=np.float32).reshape(32, 48))
+        self.assertEqual(heat.shape, (32, 48, 3))
         self.assertTrue(encode_png_rgb(overlay).startswith(b"\x89PNG"))
         self.assertTrue(encode_png_mask(mask).startswith(b"\x89PNG"))
         probs = np.linspace(0, 1, 32 * 48, dtype=np.float32).reshape(32, 48)

@@ -1,35 +1,60 @@
 # Évaluation finale sur le jeu de test (Stage 5)
 
-**Statut :** PROTOCOLE FIGÉ — exécution one-shot via Colab (`notebooks/03_final_test_evaluation_colab.ipynb`)  
-**Sélection figée avant accès test :** `experiments/metadata/phase4/FINAL_MODEL_SELECTION_FREEZE.json`
+**Statut :** TERMINÉ (one-shot Colab, 2026-11-08)  
+**Notebook :** `notebooks/03_final_test_evaluation_colab.ipynb`  
+**Sélection figée avant accès test :** `experiments/metadata/phase4/FINAL_MODEL_SELECTION_FREEZE.json`  
+**Garde-fou :** `experiments/metadata/phase4/STAGE5_TEST_EVAL_DONE.json`  
+**Tableau résumé :** `experiments/results/phase4/phase4_final_test_comparison.csv`
 
-## Règles
+## Règles respectées
 
 - Aucun retuning de seuil sur le test.
 - Aucune re-sélection de modèle après observation du test.
-- Une seule passe d’évaluation (garde-fou `STAGE5_TEST_EVAL_DONE.json` sur Drive).
-- Vérification SHA-256 des checkpoints Drive contre les métadonnées avant prédiction.
+- Une seule passe d’évaluation.
+- SHA-256 Drive vérifiés pour E1 / E2a / E2b (`match True`).
+- Chargement Keras-safe (rebuild architecture + poids) pour éviter l’incompatibilité `GlorotUniform.input_axes`.
 
-## Modèle primaire (sélection validation)
+## Modèle primaire (sélection validation, inchangée)
 
 | Champ | Valeur |
 | --- | --- |
 | Expérience | `E2b_unet_mobilenetv2_finetune_20261108_1721` |
 | Seuil opérationnel | 0.55 |
 | Dice val (mean/image) | ≈ 0.778 |
+| Dice test (mean/image) | ≈ **0.818** |
+| Dice test (global) | ≈ **0.871** |
 | Checkpoint SHA-256 | `280170dc64347b0b4cc8ce3af9be40dec4ac3733b27d1abeb620cc0c8e88e432` |
 
-## Modèles évalués une fois sur test
+## Résultats test (mean / image, seuils figés)
 
-E0 (thr 0.5), E1 (thr 0.35), E2a (thr 0.15), E2b (thr 0.55).
+| Exp | Thr | Dice | IoU | Precision | Recall | F1 | Accuracy |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| E0 | 0.50 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.921 |
+| E1 | 0.35 | 0.398 | 0.287 | 0.297 | 0.951 | 0.398 | 0.767 |
+| E2a | 0.15 | 0.613 | 0.454 | 0.465 | 0.960 | 0.613 | 0.935 |
+| **E2b** | **0.55** | **0.818** | **0.705** | **0.778** | **0.897** | **0.818** | **0.979** |
 
-## Résultats test
+## Résultats test (globaux pixels)
 
-**À compléter uniquement après exécution Colab réussie.**  
-Fichiers attendus sur Drive :
+| Exp | Dice | IoU | Accuracy |
+| --- | ---: | ---: | ---: |
+| E0 | 0.000 | 0.000 | 0.921 |
+| E1 | 0.394 | 0.245 | 0.767 |
+| E2a | 0.695 | 0.533 | 0.935 |
+| **E2b** | **0.871** | **0.771** | **0.979** |
 
-- `experiments/results/phase4/phase4_final_test_comparison.csv`
-- `experiments/results/phase4/*_test_per_image.csv`
-- `experiments/metadata/phase4/STAGE5_TEST_EVAL_DONE.json`
+## Lecture val → test (Dice mean/image)
 
-Tant que ces fichiers n’existent pas, **aucune métrique test n’est inventée** dans le rapport ou les slides.
+| Exp | Val | Test | Δ |
+| --- | ---: | ---: | ---: |
+| E1 | 0.569 | 0.398 | −0.171 |
+| E2a | 0.705 | 0.613 | −0.092 |
+| E2b | 0.778 | 0.818 | +0.040 |
+
+Avec **n_test = 9**, un écart positif sur E2b n’est **pas** une preuve de généralisation supérieure ; il reflète surtout la variance d’un petit jeu. E1 et E2a baissent comme attendu. L’ordre relatif **E2b > E2a > E1 > E0** est conservé. L’accuracy d’E0 (~0,92) reste trompeuse (Dice = 0).
+
+## Artefacts Drive
+
+- `…/results/phase4/phase4_final_test_comparison.csv`
+- `…/results/phase4/*_test_per_image.csv`
+- `…/metadata/phase4/STAGE5_TEST_EVAL_DONE.json`

@@ -1,0 +1,24 @@
+{
+  "stage": 5,
+  "status": "completed",
+  "split": "test",
+  "split_manifest_sha256": "9a01c05cfc7d33783c4f64b91b0ae423a4d3ad57439fd71ffc029a8f04585c78",
+  "freeze_file": "/content/drive/MyDrive/RoadAnomaly/experiments/metadata/phase4/FINAL_MODEL_SELECTION_FREEZE.json",
+  "primary_model": "E2b_unet_mobilenetv2_finetune_20261108_1721",
+  "summary_csv": "/content/drive/MyDrive/RoadAnomaly/experiments/results/phase4/phase4_final_test_comparison.csv",
+  "local_summary_csv": "experiments/results/phase4/phase4_final_test_comparison.csv",
+  "ingested_from": "Colab notebook paste 2026-11-08",
+  "notes": "One-shot test evaluation after frozen validation selection. No threshold retuning. Keras-safe rebuild+weights loader. Checkpoint SHA matches verified for E1/E2a/E2b.",
+  "mean_per_image_dice": {
+    "E0_all_background": 0.0,
+    "E1_cnn_scratch_20261108_1510": 0.3978783715692988,
+    "E2a_unet_mobilenetv2_frozen_20261108_1714": 0.6125844465204417,
+    "E2b_unet_mobilenetv2_finetune_20261108_1721": 0.8179924909145049
+  },
+  "global_dice": {
+    "E0_all_background": 0.0,
+    "E1_cnn_scratch_20261108_1510": 0.394191,
+    "E2a_unet_mobilenetv2_frozen_20261108_1714": 0.695302,
+    "E2b_unet_mobilenetv2_finetune_20261108_1721": 0.870957
+  }
+}

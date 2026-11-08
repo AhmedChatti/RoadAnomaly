@@ -231,7 +231,7 @@ When finished, paste E2a/E2b checkpoint paths + selected thresholds (or the Driv
 
 **Stage 4:** COMPLETED. Comparison CSV + `docs/13_…` + freeze `FINAL_MODEL_SELECTION_FREEZE.json` (primary E2b).
 
-**Stage 5:** BLOCKED on Colab UI automation. Notebook `03_final_test_evaluation_colab.ipynb` ready (hash verify + one-shot test). No test metrics invented.
+**Stage 5:** COMPLETED (Colab one-shot). Test mean Dice: E0=0, E1≈0.398, E2a≈0.613, E2b≈0.818 (global≈0.871). SHA matches True. Artefacts: `phase4_final_test_comparison.csv`, `STAGE5_TEST_EVAL_DONE.json`.
 
-**Stages 6–9:** COMPLETED WITH LIMITATIONS (validation evidence only until Stage 5 finishes).  
+**Stages 6–9:** COMPLETED (val + test numbers filled after Stage 5).  
 HEAD after docs push: `8c780d7…`.

@@ -1,7 +1,7 @@
-# Guide de soutenance — réponses avec résultats mesurés (validation)
+# Guide de soutenance — réponses avec résultats mesurés
 
 Complète `docs/06_individual_defense_guide.md`.  
-**Les chiffres ci-dessous sont de VALIDATION**, sauf mention contraire après Stage 5.
+Validation = sélection. Test = one-shot après gel (Stage 5 terminé).
 
 ## Timing oral suggéré (aligné slides docs/15)
 
@@ -14,17 +14,18 @@ Complète `docs/06_individual_defense_guide.md`.
 | Limites + ICCV + conclusion | 3 |
 | **Total** | **≈ 16,5** |
 
-## Chiffres à connaître par cœur (val, mean/image)
+## Chiffres à connaître par cœur (mean/image)
 
-| | Dice | IoU | Recall | Seuil |
-| --- | ---: | ---: | ---: | ---: |
-| E0 | 0 | 0 | 0 | 0,5 |
-| E1 | 0,57 | 0,45 | 0,85 | 0,35 |
-| E2a | 0,70 | 0,58 | 0,84 | 0,15 |
-| E2b | **0,78** | **0,69** | 0,79 | **0,55** |
+| | Seuil | Dice val | Dice test | IoU val | IoU test |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| E0 | 0,5 | 0 | 0 | 0 | 0 |
+| E1 | 0,35 | 0,57 | 0,40 | 0,45 | 0,29 |
+| E2a | 0,15 | 0,70 | 0,61 | 0,58 | 0,45 |
+| E2b | **0,55** | **0,78** | **0,82** | **0,69** | **0,71** |
 
+E2b Dice test **global** ≈ 0,87.  
 E1 meilleure époque : 66. E2a : 10. E2b : 34.  
-Split : 42/9/9. SHA split : `9a01c05c…`. E1 ckpt SHA : `567bde32…`.
+Split : 42/9/9. SHA split : `9a01c05c…`. E2b ckpt SHA : `280170dc…`.
 
 ## Questions difficiles — réponses courtes
 
@@ -47,7 +48,7 @@ Toutes les 60 images ont des anomalies ; pas de corpus « normal only » pour un
 Ils font de la resynthèse / discordance ; nous faisons de la segmentation supervisée sur un split de RoadAnomaly. Scores non comparables directement.
 
 **Surapprentissage ?**  
-Risque élevé (n=42). Early stopping utilisé. Les courbes Drive doivent être commentées (écart train/val). Le test one-shot tranche la généralisation — sans retuning.
+Risque élevé (n=42). Early stopping utilisé. Sur test, E1/E2a baissent ; E2b reste 1er (Dice ≈ 0,82) mais n_test=9 ⇒ ne pas sur-interpréter un écart val→test positif.
 
 **BatchNorm absente d’E1 ?**  
 Avec batch 2, BN a collapsé vers tout fond dans un run exploratoire ; décision figée : pas de BN dans E1.

@@ -7,13 +7,13 @@
 **SHA Git (entraînement E2) :** `9e734a1d0af48342f92c084216b1dd1d4c254741`  
 **Verrou de split :** `9a01c05cfc7d33783c4f64b91b0ae423a4d3ad57439fd71ffc029a8f04585c78`
 
-> **Avertissement méthodologique.** Les métriques de **validation** ci-dessous sont mesurées. Les métriques de **test** ne sont reportées que si Stage 5 a produit `phase4_final_test_comparison.csv`. Aucun chiffre manquant n’est inventé.
+> **Avertissement méthodologique.** Validation et test sont des splits distincts. Les seuils / le modèle primaire ont été figés **avant** l’accès test (`FINAL_MODEL_SELECTION_FREEZE.json`). Source test : `phase4_final_test_comparison.csv` (Stage 5, 2026-11-08).
 
 ---
 
 ## Résumé
 
-Ce projet construit un système de **segmentation sémantique binaire supervisée** pour localiser des obstacles routiers inhabituels (animaux, cônes, débris, etc.). Sur un jeu de 60 images (split 42/9/9, résolution d’entrée 512×288), nous comparons une baseline triviale (E0), un CNN entraîné de zéro (E1) et un U-Net avec encodeur MobileNetV2 pré-entraîné (E2a gelé, E2b fine-tuning partiel). En **validation**, E2b obtient le meilleur Dice moyen par image (**0,778** au seuil 0,55), devant E2a (**0,705**) et E1 (**0,569**). L’accuracy d’E0 (~0,86) illustre le piège du déséquilibre de classes. Ce travail **ne reproduit pas** Lis et al. (2019) : leur méthode est une détection d’anomalies par resynthèse d’image ; la nôtre est une segmentation supervisée sur RoadAnomaly.
+Ce projet construit un système de **segmentation sémantique binaire supervisée** pour localiser des obstacles routiers inhabituels (animaux, cônes, débris, etc.). Sur un jeu de 60 images (split 42/9/9, résolution d’entrée 512×288), nous comparons une baseline triviale (E0), un CNN entraîné de zéro (E1) et un U-Net avec encodeur MobileNetV2 pré-entraîné (E2a gelé, E2b fine-tuning partiel). En **validation**, E2b obtient le meilleur Dice moyen par image (**0,778** au seuil 0,55), devant E2a (**0,705**) et E1 (**0,569**). Sur le **test** one-shot (seuils figés), E2b reste premier (**Dice mean/image ≈ 0,818**, Dice global ≈ 0,871), devant E2a (**0,613**) et E1 (**0,398**). L’accuracy d’E0 (val ~0,86 / test ~0,92) illustre le piège du déséquilibre de classes. Ce travail **ne reproduit pas** Lis et al. (2019) : leur méthode est une détection d’anomalies par resynthèse d’image ; la nôtre est une segmentation supervisée sur RoadAnomaly.
 
 ---
 
@@ -130,11 +130,19 @@ Source : `experiments/results/phase4/phase4_E0_E1_E2_val_comparison.csv` et mét
 ### 7.3 Réponses provisoires aux RQ (validation)
 - **RQ1 :** oui — E1 ≫ E0 en Dice/IoU.  
 - **RQ2 :** oui — E2a > E1 en Dice val.  
-- **RQ3 :** oui sur val — E2b > E2a ; risque de surapprentissage non exclu (n=42).  
+- **RQ3 :** oui sur val et confirmé sur test one-shot — E2b > E2a ; risque de surapprentissage non exclu (n=42, n_test=9).  
 - **RQ4 :** AE normal-only non justifié.
 
-### 7.4 Résultats test
-Voir `docs/14_final_test_evaluation.md`. **Ne pas confondre avec la validation.**
+### 7.4 Résultats test (mean per image, one-shot)
+
+| Exp | Seuil op. | Dice | IoU | Precision | Recall | F1 | Accuracy |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| E0 | 0,50 | 0,000 | 0,000 | 0,000 | 0,000 | 0,000 | 0,921 |
+| E1 | 0,35 | 0,398 | 0,287 | 0,297 | 0,951 | 0,398 | 0,767 |
+| E2a | 0,15 | 0,613 | 0,454 | 0,465 | 0,960 | 0,613 | 0,935 |
+| E2b | 0,55 | **0,818** | **0,705** | **0,778** | 0,897 | **0,818** | **0,979** |
+
+Dice **global** E2b ≈ **0,871**. Détail et Δ val→test : `docs/14_final_test_evaluation.md`. Ordre relatif inchangé ; n_test=9 ⇒ variance élevée (E2b test > val n’est pas une preuve de généralisation).
 
 ### 7.5 Limites
 n_val=n_test=9 ; pas de lost-tire en test ; scènes web biaisées ; seuils différents entre modèles ; pas d’IC inventés.
@@ -151,7 +159,7 @@ n_val=n_test=9 ; pas de lost-tire en test ; scènes web biaisées ; seuils diff�
 
 ## 9. Conclusion
 
-Le transfer learning MobileNetV2 améliore nettement les scores de **validation** par rapport au CNN from scratch, et le fine-tuning partiel (E2b) donne le meilleur Dice val observé. Ces conclusions restent conditionnées à un jeu minuscule et doivent être confirmées par l’évaluation test one-shot. Le projet documente un protocole reproductible et refuse les comparaisons fallacieuses avec ICCV 2019.
+Le transfer learning MobileNetV2 améliore nettement les scores par rapport au CNN from scratch, et le fine-tuning partiel (E2b) reste le meilleur modèle en validation **et** sur le test one-shot (Dice mean/image ≈ 0,818). Ces conclusions restent conditionnées à un jeu minuscule (n_test=9). Le projet documente un protocole reproductible et refuse les comparaisons fallacieuses avec ICCV 2019.
 
 ---
 

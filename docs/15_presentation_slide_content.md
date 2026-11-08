@@ -2,7 +2,7 @@
 
 **Langue :** français  
 **Durée cible :** ~17–18 min  
-**Règle :** métriques **validation** uniquement ci-dessous ; cases test = « après Stage 5 » si absentes.
+**Règle :** distinguer clairement **validation** (sélection) et **test** (one-shot figé).
 
 Sources figures : `reports/figures/`, `experiments/figures/`, Drive `…/phase4/*`.
 
@@ -59,14 +59,21 @@ Drive : `E2*_training_curves.png`, `E2*_val_qualitative.png` ; E1 curves locales
 Mentionner figure E1 qualitative **régénérée**.
 
 ## Slide 11 — Résultats test (1 min)
-**Uniquement si Stage 5 terminé** — sinon slide « protocole figé, exécution one-shot en cours / à coller ».  
-Ne jamais inventer.
+One-shot, seuils figés (n=9). Mean Dice/image :
+
+| | E0 | E1 | E2a | **E2b** |
+| --- | ---: | ---: | ---: | ---: |
+| Dice | 0.00 | 0.40 | 0.61 | **0.82** |
+| IoU | 0.00 | 0.29 | 0.45 | **0.71** |
+
+E2b Dice global ≈ **0.87**. Ordre E2b > E2a > E1 > E0 conservé.  
+Message : pas de retuning ; petit n ⇒ ne pas sur-interpréter E2b test > val.
 
 ## Slide 12 — Analyse critique (1 min 30)
-Petit n ; déséquilibre ; pas de lost-tire en test ; E2b meilleur en val mais incertitude élevée ; ≠ protocole ICCV.
+Petit n ; déséquilibre ; pas de lost-tire en test ; variance élevée ; ≠ protocole ICCV.
 
 ## Slide 13 — Conclusion & perspectives (1 min)
-Transfer learning utile en validation ; AE conventionnel non justifié ; démo Streamlit proposée non production.
+Transfer learning utile (val + test) ; AE conventionnel non justifié ; démo Streamlit proposée non production.
 
 ## Slide 14 — Références
 Lis et al., ICCV 2019 ; `credits.txt` ; Git SHA entraînement E2 `9e734a1…`.
